@@ -113,19 +113,54 @@ python3 scripts/fetch_odcloud.py
 
 ## 4. Supabase 에 반영하기
 
+쓰는 프로젝트는 **`jlaw80_DB`** 입니다.
+<https://supabase.com/dashboard/project/qhnyrkbmkzhsgthcxoiw>
+
+스키마(`pricing` 스키마와 표 6개)는 이미 적용돼 있고 데이터도 올라가 있습니다.
+**단가를 고친 뒤** 아래 순서로 반영하면 됩니다.
+
 ```bash
-python3 scripts/export_sql.py
+python3 scripts/export_sql.py    # supabase/seed/ 의 SQL 다시 생성
 ```
 
-1. 처음 한 번만: Supabase 대시보드 → SQL Editor 에 `supabase/migrations/0001_init.sql` 붙여넣고 Run
-2. 그 다음: `supabase/seed/` 안의 SQL 파일을 붙여넣고 Run
+1. Supabase 대시보드 → SQL Editor 를 엽니다.
+2. `supabase/seed/` 에서 바뀐 데이터의 SQL 파일을 붙여넣고 Run 합니다.
+   같은 SQL 을 여러 번 실행해도 중복으로 쌓이지 않습니다(덮어쓰기 방식).
+3. 제대로 들어갔는지 대조합니다.
 
-같은 SQL을 여러 번 실행해도 중복으로 쌓이지 않습니다(덮어쓰기 방식).
+```bash
+python3 scripts/checksum.py       # 기대 행수와 체크섬
+python3 scripts/checksum.py --sql # 이 SQL 을 SQL Editor 에서 실행
+```
 
-> 현재 계정의 Supabase 프로젝트 4개가 모두 **일시정지(INACTIVE)** 상태입니다.
-> 대시보드에서 프로젝트를 되살리거나 새로 만든 뒤 적용하세요.
+두 결과의 **행수와 체크섬이 같으면** 값이 한 칸도 어긋나지 않고 들어간 것입니다.
+다르면 그 데이터셋만 다시 넣으세요.
 
----
+> 💡 SQL 이 너무 길어 한 번에 안 들어가면(특히 전기요금은 320행) 파일을 나눠서 실행해도 됩니다.
+> `insert ... values` 한 덩어리를 중간에서 자르지만 않으면 됩니다.
+
+### 다른 앱에서 REST API 로 읽으려면
+
+`pricing` 스키마는 기본적으로 REST API 에 공개돼 있지 않습니다.
+Project Settings → API → **Exposed schemas** 에 `pricing` 을 추가해야
+다른 앱에서 `supabase.schema('pricing').from('electricity_rate')` 로 읽을 수 있습니다.
+
+현재 권한은 **읽기는 누구나, 쓰기는 service_role 만** 으로 잡혀 있습니다.
+단가는 공개 고시 자료라 읽기를 막을 이유가 없고, 쓰기는 서버에서만 하도록 한 것입니다.
+service_role 키는 **브라우저에 노출하면 안 됩니다** (서버·빌드 환경변수로만 사용).
+
+### 전기요금 계산에 쓰기 전에
+
+`electricity_tariff_version.climate_charge_per_kwh` 와 `fuel_adjustment_per_kwh` 가
+`null` 입니다. 요금표 PDF 에 단가가 없어서 비워둔 값입니다.
+한전 공지에서 확인해 채워야 실제 요금이 계산됩니다.
+
+```sql
+update pricing.electricity_tariff_version
+set climate_charge_per_kwh = 9.0,     -- 실제 공지 단가로 바꾸세요
+    fuel_adjustment_per_kwh = 5.0     -- 분기마다 달라집니다
+where effective_from = '2026-04-16';
+```
 
 ## 5. API 키를 다룰 때 지킬 것
 

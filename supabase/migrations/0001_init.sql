@@ -168,8 +168,18 @@ begin
         'renewable_equipment_price', 'misc_price'
     ] loop
         execute format('alter table pricing.%I enable row level security', t);
-        execute format(
-            'create policy %I on pricing.%I for select to anon, authenticated using (true)',
-            t || '_read', t);
+        -- create policy 는 if not exists 를 지원하지 않으므로 직접 확인한다.
+        if not exists (
+            select 1 from pg_policies
+            where schemaname = 'pricing' and tablename = t and policyname = t || '_read'
+        ) then
+            execute format(
+                'create policy %I on pricing.%I for select to anon, authenticated using (true)',
+                t || '_read', t);
+        end if;
     end loop;
 end $$;
+
+-- 참고: 다른 앱이 Supabase REST API(PostgREST)로 이 표들을 읽으려면
+-- Project Settings > API > Exposed schemas 에 'pricing' 을 추가해야 한다.
+-- 추가하지 않으면 SQL Editor 와 서버사이드 접속으로만 읽을 수 있다.

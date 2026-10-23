@@ -34,6 +34,16 @@
 | 신재생에너지 장비 단가 | — | ⬜ 빈 템플릿 (자료 입력 대기) |
 | 기타 단가 | — | ⬜ 빈 템플릿 (자료 입력 대기) |
 
+위 데이터는 Supabase 프로젝트 **`jlaw80_DB`** (`qhnyrkbmkzhsgthcxoiw`, 도쿄 리전) 의
+`pricing` 스키마에 그대로 올라가 있습니다. JSON 원본과 DB 내용이 한 칸도 다르지 않다는 것을
+체크섬으로 확인했습니다 (`scripts/checksum.py`).
+
+| 테이블 | 행수 |
+|---|---:|
+| `pricing.electricity_rate` | 320 |
+| `pricing.gas_power_generation_monthly` | 180 |
+| `pricing.gas_wholesale_price` | 11 |
+
 아직 데이터로 만들지 않은 원본은 `sources/electricity/` 에 그대로 보관돼 있습니다
 (2021-01-01 ~ 2025-04-01, 13개 시행일 / PDF 28부). 어떤 것이 남았는지는
 [docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) 의 체크리스트를 보세요.
@@ -45,6 +55,8 @@ python3 scripts/validate.py              # 데이터 형식 점검 (고친 뒤 �
 python3 scripts/verify_electricity.py    # 전기요금 숫자를 원본 PDF와 대조
 python3 scripts/export_sql.py            # Supabase 에 넣을 SQL 다시 만들기
 python3 scripts/convert_gas_csv.py       # 가스 CSV → JSON 다시 변환
+python3 scripts/checksum.py              # DB 와 대조할 기대 체크섬 출력
+python3 scripts/checksum.py --sql        # DB 에서 돌릴 대조 SQL 출력
 ```
 
 ## API 키 관리
