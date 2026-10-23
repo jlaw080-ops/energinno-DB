@@ -73,6 +73,13 @@ def show(path: Path) -> str:
 def verify(json_path: Path) -> int:
     doc = json.loads(json_path.read_text(encoding="utf-8"))
     meta = doc["meta"]
+
+    if meta.get("skip_pdf_number_check"):
+        print(f"\n[{show(json_path)}]")
+        print("  — 자동 대조 건너뜀")
+        print(f"    {meta['skip_pdf_number_check']}")
+        return 0
+
     pdf_path = ROOT / meta["source_file"]
     if not pdf_path.exists():
         print(f"  !! 원본 PDF 없음: {meta['source_file']}")
