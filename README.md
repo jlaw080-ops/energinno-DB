@@ -1,1 +1,62 @@
 # energinno-DB
+
+신재생에너지·건물에너지 사업의 **경제성 분석에 쓰는 단가를 한 곳에서 관리**하는 저장소입니다.
+전기·가스 요금, 신재생에너지 장비 단가, 기타 단가를 담습니다.
+
+## 어떻게 굴러가나요
+
+```
+원본 자료(PDF·CSV)  →  JSON 데이터  →  Supabase(DB)  →  다른 앱에서 조회
+  sources/             data/           supabase/        제안서·경제성분석 등
+```
+
+- **`data/` 안의 JSON이 원본(정답)** 입니다. 값이 바뀌면 여기부터 고칩니다.
+- Git에 기록이 남으므로 **"언제 누가 어떤 단가를 왜 바꿨는지"가 그대로 요금 개정 이력**이 됩니다.
+- Supabase는 다른 앱이 가져다 쓰기 편하라고 두는 **사본**입니다.
+
+## 폴더 설명
+
+| 폴더 | 내용 |
+|---|---|
+| `data/` | 단가 데이터 (JSON) — **여기가 원본** |
+| `sources/` | 근거가 되는 원본 PDF·CSV. 파일명은 `시행일_종류` 형식 |
+| `docs/` | 데이터 구조 설명서와 갱신 방법 |
+| `scripts/` | 변환·검증·SQL 생성 도구 |
+| `supabase/` | DB 테이블 정의(`migrations/`)와 데이터 적재용 SQL(`seed/`) |
+
+## 지금 들어있는 데이터
+
+| 항목 | 범위 | 상태 |
+|---|---|---|
+| 전기요금 (한전) | 2026-04-16 시행 종합요금표 1·2페이지, 16개 계약종별 (DB 적재 시 요율 320행) | ✅ 원본 PDF와 숫자 385개 전량 대조 완료 |
+| 가스 도매요금 (가스공사) | 2026-09-01 기준 용도별 11건 | ✅ 원본 CSV 전량 변환 |
+| 발전용 천연가스요금 | 2008-01 ~ 2022-12 월별 180건 | ✅ 원본 CSV 전량 변환 |
+| 신재생에너지 장비 단가 | — | ⬜ 빈 템플릿 (자료 입력 대기) |
+| 기타 단가 | — | ⬜ 빈 템플릿 (자료 입력 대기) |
+
+아직 데이터로 만들지 않은 원본은 `sources/electricity/` 에 그대로 보관돼 있습니다
+(2021-01-01 ~ 2025-04-01, 13개 시행일 / PDF 28부). 어떤 것이 남았는지는
+[docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) 의 체크리스트를 보세요.
+
+## 자주 쓰는 명령
+
+```bash
+python3 scripts/validate.py              # 데이터 형식 점검 (고친 뒤 꼭 실행)
+python3 scripts/verify_electricity.py    # 전기요금 숫자를 원본 PDF와 대조
+python3 scripts/export_sql.py            # Supabase 에 넣을 SQL 다시 만들기
+python3 scripts/convert_gas_csv.py       # 가스 CSV → JSON 다시 변환
+```
+
+## API 키 관리
+
+API 키는 **절대 이 저장소에 커밋하지 않습니다.**
+`.env.example` 을 복사해 `.env` 를 만들고 거기에만 넣으세요. `.env` 는 `.gitignore` 에 등록돼 있습니다.
+
+```bash
+cp .env.example .env
+```
+
+## 더 읽을 것
+
+- [docs/DATA-MODEL.md](docs/DATA-MODEL.md) — 각 단가를 어떤 항목으로 저장하는지
+- [docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) — 요금이 바뀌었을 때 갱신하는 방법

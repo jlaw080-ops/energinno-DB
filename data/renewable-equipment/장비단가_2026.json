@@ -1,0 +1,12 @@
+{
+  "meta": {
+    "dataset": "renewable_equipment_price",
+    "title": "신재생에너지 장비 단가",
+    "base_year": 2026,
+    "currency": "KRW",
+    "updated_at": "2026-10-23",
+    "status": "빈 템플릿 — 단가 자료를 받는 대로 items 에 채웁니다",
+    "guide": "docs/DATA-MODEL.md 의 '신재생에너지 장비 단가' 절 참고"
+  },
+  "items": []
+}
