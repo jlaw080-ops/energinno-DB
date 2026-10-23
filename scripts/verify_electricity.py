@@ -54,6 +54,14 @@ def walk(node, path: str, out: list[tuple[str, float]]) -> None:
         out.append((path, float(node)))
 
 
+def show(path: Path) -> str:
+    """레포 안이면 상대경로로, 밖이면 절대경로 그대로 보여준다."""
+    try:
+        return str(path.relative_to(ROOT))
+    except ValueError:
+        return str(path)
+
+
 def verify(json_path: Path) -> int:
     doc = json.loads(json_path.read_text(encoding="utf-8"))
     meta = doc["meta"]
@@ -69,7 +77,7 @@ def verify(json_path: Path) -> int:
 
     missing = [(p, v) for p, v in values if normalize(str(v)) not in available]
 
-    print(f"\n[{json_path.relative_to(ROOT)}]")
+    print(f"\n[{show(json_path)}]")
     print(f"  원본: {meta['source_file']} (p.{', p.'.join(map(str, meta['source_pages']))})")
     print(f"  검사한 숫자 {len(values)}개 / PDF에서 읽은 숫자 {len(available)}개")
     if missing:
