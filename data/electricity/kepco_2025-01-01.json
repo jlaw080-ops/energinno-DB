@@ -20,8 +20,8 @@
   "taxes": {
     "vat_rate": 0.1,
     "vat_note": "전기요금 × 10% (원미만 4사5입)",
-    "power_industry_fund_rate": 0.027,
-    "power_industry_fund_note": "전기요금 × 2.7% (10원미만 절사). 2025-07-01부 3.2% → 2.7% 인하",
+    "power_industry_fund_rate": 0.032,
+    "power_industry_fund_note": "전기요금 × 3.2% (10원미만 절사). 2025-07-01부 2.7% 로 인하",
     "billing_formula": "청구금액 = 전기요금 + 부가가치세 + 전력산업기반기금"
   },
   "surcharges": {

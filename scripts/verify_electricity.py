@@ -14,6 +14,9 @@ from pathlib import Path
 
 import pdfplumber
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from read_kepco_tables import extract_words  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 NUM_RE = re.compile(r"\d[\d,]*\.?\d*")
 
@@ -22,13 +25,18 @@ SKIP_KEYS = {"tier", "source_pages", "vat_rate", "power_industry_fund_rate"}
 
 
 def pdf_numbers(pdf_path: Path, pages: list[int]) -> set[str]:
-    """PDF 해당 페이지의 모든 숫자를 정규화해 집합으로 반환."""
+    """PDF 해당 페이지의 모든 숫자를 정규화해 집합으로 반환.
+
+    extract_text() 를 쓰면 안 된다. 일부 요금표는 '116.7' 을 글자 단위로 그려서
+    그런 숫자가 통째로 빠지고, 멀쩡한 값이 '없다'고 나온다.
+    read_kepco_tables 의 글자 단위 토큰화를 써야 전부 잡힌다.
+    """
     found: set[str] = set()
     with pdfplumber.open(pdf_path) as pdf:
         for page_no in pages:
-            text = pdf.pages[page_no - 1].extract_text() or ""
-            for raw in NUM_RE.findall(text):
-                found.add(normalize(raw))
+            for token in extract_words(pdf.pages[page_no - 1]):
+                for raw in NUM_RE.findall(token["text"]):
+                    found.add(normalize(raw))
     return found
 
 

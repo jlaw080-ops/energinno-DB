@@ -5,7 +5,7 @@ insert into pricing.electricity_tariff_version
   (effective_from, published_label, provider, source_file,
    vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh, note)
 values
-  ('2024-10-24', '2024년 10월 24일 시행', '한국전력공사', 'sources/electricity/2024-10-24_종합.pdf', 0.1, 0.027, NULL, NULL, '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2024-10-24 시행')
+  ('2024-10-24', '2024년 10월 24일 시행', '한국전력공사', 'sources/electricity/2024-10-24_종합.pdf', 0.1, 0.032, NULL, NULL, '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2024-10-24 시행')
 on conflict (effective_from, source_file) do update set
   published_label = excluded.published_label,
   vat_rate = excluded.vat_rate,

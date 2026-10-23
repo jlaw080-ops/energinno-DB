@@ -43,6 +43,49 @@ def as_number(word: dict) -> float | None:
     return float(text.replace(",", ""))
 
 
+# 일부 요금표는 '116.7' 을 '1','1','6','.','7' 처럼 글자 단위로 그린다.
+# pdfplumber 의 extract_words 는 x_tolerance 를 올려도 이것을 붙이지 못해
+# 해당 행을 통째로 놓친다. 그래서 글자(char)에서 직접 토큰을 만든다.
+ROW_TOL = 2.5   # 같은 줄로 볼 세로 오차
+GAP_TOL = 2.0   # 같은 토큰으로 볼 가로 간격
+
+
+def extract_words(page) -> list[dict]:
+    """page.chars 를 직접 묶어 토큰을 만든다. extract_words 와 같은 모양으로 반환.
+
+    줄을 먼저 나눈 뒤 줄 안에서만 가로로 묶는다. 한 번에 정렬해 묶으면
+    다른 줄의 글자가 끼어들어 '119.7' + '9~10월)' 처럼 엉뚱하게 붙는다.
+    """
+    chars = sorted((c for c in page.chars if c["text"].strip()),
+                   key=lambda c: (c["top"], c["x0"]))
+    rows: list[list[dict]] = []
+    for c in chars:
+        if rows and abs(c["top"] - rows[-1][0]["top"]) <= ROW_TOL:
+            rows[-1].append(c)
+        else:
+            rows.append([c])
+
+    tokens = []
+    for row in rows:
+        row.sort(key=lambda c: c["x0"])
+        cur: list[dict] = []
+        for c in row:
+            if cur and c["x0"] - cur[-1]["x1"] > GAP_TOL:
+                tokens.append(_token(cur))
+                cur = []
+            cur.append(c)
+        if cur:
+            tokens.append(_token(cur))
+    return tokens
+
+
+def _token(chars: list[dict]) -> dict:
+    return {"text": "".join(c["text"] for c in chars),
+            "x0": chars[0]["x0"], "x1": chars[-1]["x1"],
+            "top": min(c["top"] for c in chars),
+            "bottom": max(c["bottom"] for c in chars)}
+
+
 def in_region(words: list[dict], region: tuple[float, ...]) -> list[dict]:
     x0, y0, x1, y1 = region
     return [w for w in words
@@ -52,7 +95,7 @@ def in_region(words: list[dict], region: tuple[float, ...]) -> list[dict]:
 
 def read_numbers(page, region, row_tol: float = 4) -> list[float]:
     """영역 안의 숫자를 읽기순(위→아래, 왼→오른)으로 반환. 계절별·누진 표용."""
-    words = sorted(in_region(page.extract_words(), region),
+    words = sorted(in_region(extract_words(page), region),
                    key=lambda w: (w["top"], w["x0"]))
     rows, cur = [], []
     for w in words:
@@ -71,12 +114,12 @@ def read_numbers(page, region, row_tol: float = 4) -> list[float]:
     return out
 
 
-def read_tou(page, region, row_tol: float = 3.5):
+def read_tou(page, region, row_tol: float = 3.5, expect: int | None = None):
     """시간대별 요율을 읽는다.
 
     반환: (기본요금 목록, [(시간대, y좌표, [여름, 봄·가을, 겨울]), ...])
     """
-    words = in_region(page.extract_words(), region)
+    words = in_region(extract_words(page), region)
     labels = sorted((w for w in words if w["text"].strip() in ZONES),
                     key=lambda w: w["top"])
     rows = []
@@ -88,6 +131,11 @@ def read_tou(page, region, row_tol: float = 3.5):
         rows.append((label["text"].strip(), round(label["top"], 1), values))
     basics = [as_number(w) for w in sorted(words, key=lambda w: w["top"])
               if "," in w["text"] and (as_number(w) or 0) >= 1000]
+    if expect is not None and len(rows) != expect:
+        raise SystemExit(
+            f"시간대 행이 {len(rows)}개입니다 (기대 {expect}개).\n"
+            "영역이 좁거나, 글자가 쪼개져 그려진 행이 있어 건너뛴 것입니다.\n"
+            "영역을 넓혀 다시 시도하고, 그래도 모자라면 해당 구간을 눈으로 확인하세요.")
     return basics, rows
 
 
@@ -113,6 +161,8 @@ def main() -> None:
     parser.add_argument("--survey", action="store_true", help="요금표 PDF 목록과 추출 가능 여부")
     parser.add_argument("--tou", help="시간대별 요율을 읽을 영역 x0,y0,x1,y1")
     parser.add_argument("--nums", help="숫자를 읽기순으로 나열할 영역 x0,y0,x1,y1")
+    parser.add_argument("--expect", type=int,
+                        help="시간대 행이 몇 개여야 하는지. 모자라면 오류로 끝낸다 (권장)")
     args = parser.parse_args()
 
     if args.survey or not args.pdf:
@@ -127,7 +177,7 @@ def main() -> None:
     with pdfplumber.open(args.pdf) as pdf:
         page = pdf.pages[args.page - 1]
         if args.tou:
-            basics, rows = read_tou(page, region)
+            basics, rows = read_tou(page, region, expect=args.expect)
             print(f"기본요금 {len(basics)}개: {basics}")
             print(f"시간대 행 {len(rows)}개  (값은 여름철 / 봄·가을철 / 겨울철 순)")
             for name, top, values in rows:
