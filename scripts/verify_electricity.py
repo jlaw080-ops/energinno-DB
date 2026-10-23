@@ -83,7 +83,7 @@ def verify(json_path: Path) -> int:
 
 def main() -> None:
     targets = (
-        [Path(a) for a in sys.argv[1:]]
+        [Path(a).resolve() for a in sys.argv[1:]]
         if len(sys.argv) > 1
         else sorted((ROOT / "data" / "electricity").glob("*.json"))
     )

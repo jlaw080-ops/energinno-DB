@@ -28,7 +28,7 @@
 
 | 항목 | 범위 | 상태 |
 |---|---|---|
-| 전기요금 (한전) | 2026-04-16 시행 종합요금표 1·2페이지, 16개 계약종별 (DB 적재 시 요율 320행) | ✅ 원본 PDF와 숫자 385개 전량 대조 완료 |
+| 전기요금 (한전) | 2026-04-16 · 2025-04-01 종합요금표 1·2페이지, 각 16개 계약종별 | ✅ 각 원본 PDF와 숫자 385개 전량 대조 완료 |
 | 가스 도매요금 (가스공사) | 2026-09-01 기준 용도별 11건 | ✅ 원본 CSV 전량 변환 |
 | 발전용 천연가스요금 | 2008-01 ~ 2022-12 월별 180건 | ✅ 원본 CSV 전량 변환 |
 | 신재생에너지 장비 단가 | — | ⬜ 빈 템플릿 (자료 입력 대기) |
@@ -40,12 +40,13 @@
 
 | 테이블 | 행수 |
 |---|---:|
-| `pricing.electricity_rate` | 320 |
+| `pricing.electricity_rate` | 640 (요금표 2부 × 320) |
 | `pricing.gas_power_generation_monthly` | 180 |
 | `pricing.gas_wholesale_price` | 11 |
 
-아직 데이터로 만들지 않은 원본은 `sources/electricity/` 에 그대로 보관돼 있습니다
-(2021-01-01 ~ 2025-04-01, 13개 시행일 / PDF 28부). 어떤 것이 남았는지는
+나머지 요금표는 `sources/electricity/` 에 원본 그대로 보관돼 있습니다.
+그중 **4부(2022-04-01, 2022-07-01, 2023-01-01, 2023-11-09)는 글자가 없는 이미지 PDF**라
+사람이 옮겨 적어야 합니다. 현황은 `python3 scripts/read_kepco_tables.py --survey` 또는
 [docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) 의 체크리스트를 보세요.
 
 ## 자주 쓰는 명령
@@ -57,6 +58,7 @@ python3 scripts/export_sql.py            # Supabase 에 넣을 SQL 다시 만들
 python3 scripts/convert_gas_csv.py       # 가스 CSV → JSON 다시 변환
 python3 scripts/checksum.py              # DB 와 대조할 기대 체크섬 출력
 python3 scripts/checksum.py --sql        # DB 에서 돌릴 대조 SQL 출력
+python3 scripts/read_kepco_tables.py --survey   # 요금표 PDF 현황과 추출 가능 여부
 ```
 
 ## API 키 관리

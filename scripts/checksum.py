@@ -66,17 +66,20 @@ def gas_wholesale_lines(doc: dict) -> list[str]:
 
 
 SQL = """\
--- 전기요금
+-- 전기요금 (요금표 버전별)
 with canon as (
-  select coalesce(contract_type,'')||'|'||coalesce(rate_structure,'')||'|'||
-         coalesce(voltage,'')||'|'||coalesce(rate_option,'')||'|'||
-         coalesce(season,'')||'|'||coalesce(time_zone,'')||'|'||
-         coalesce(tier::text,'')||'|'||coalesce(basic_charge::float8::text,'')||'|'||
-         coalesce(energy_charge::float8::text,'') as line
-  from pricing.electricity_rate
+  select v.effective_from,
+         coalesce(r.contract_type,'')||'|'||coalesce(r.rate_structure,'')||'|'||
+         coalesce(r.voltage,'')||'|'||coalesce(r.rate_option,'')||'|'||
+         coalesce(r.season,'')||'|'||coalesce(r.time_zone,'')||'|'||
+         coalesce(r.tier::text,'')||'|'||coalesce(r.basic_charge::float8::text,'')||'|'||
+         coalesce(r.energy_charge::float8::text,'') as line
+  from pricing.electricity_rate r
+  join pricing.electricity_tariff_version v on v.id = r.version_id
 )
-select '전기요금' as 구분, count(*) as 행수, md5(string_agg(line, E'\\n' order by line)) as 체크섬
-from canon
+select '전기요금 '||effective_from as 구분, count(*) as 행수,
+       md5(string_agg(line, E'\\n' order by line)) as 체크섬
+from canon group by effective_from
 union all
 -- 발전용 가스요금 월별
 select '가스 월별', count(*), md5(string_agg(line, E'\\n' order by line)) from (
@@ -102,16 +105,18 @@ def main() -> None:
     if "--sql" in sys.argv:
         print(SQL)
         return
-    print(f"{'구분':<16} {'행수':>6}  체크섬")
-    print("-" * 56)
+    print(f"{'구분':<22} {'행수':>6}  체크섬")
+    print("-" * 62)
     for path in sorted(DATA.rglob("*.json")):
         doc = json.loads(path.read_text(encoding="utf-8"))
         spec = BUILDERS.get(doc.get("meta", {}).get("dataset", ""))
         if not spec:
             continue
         label, build = spec
+        if label == "전기요금":
+            label += " " + min(t["effective_from"] for t in doc["tariffs"])
         lines = build(doc)
-        print(f"{label:<16} {len(lines):>6}  {digest(lines)}")
+        print(f"{label:<22} {len(lines):>6}  {digest(lines)}")
     print("\nDB 쪽 값은 `python3 scripts/checksum.py --sql` 의 SQL 로 확인하세요.")
 
 
