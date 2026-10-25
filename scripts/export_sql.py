@@ -166,6 +166,31 @@ def gas_monthly_sql(doc: dict) -> tuple[str, int]:
     return sql, len(records)
 
 
+def surcharge_sql(doc: dict) -> tuple[str, int]:
+    """기후환경요금·연료비조정단가 시계열."""
+    records = []
+    for kind, key in (("기후환경요금", "climate_charge"), ("연료비조정단가", "fuel_adjustment")):
+        for r in doc.get(key, []):
+            records.append([kind, r["effective_from"], r.get("period"), r["won_per_kwh"],
+                            r["source"], r["source_type"], r["confidence"], r.get("note")])
+    sql = "\n".join([
+        "-- " + doc["meta"]["title"],
+        "-- source_type 이 '보도' 인 값은 한전 공식 고시로 확인되지 않았다.",
+        "insert into pricing.electricity_surcharge",
+        "  (kind, effective_from, period_label, won_per_kwh, source, source_type, confidence, note)",
+        "values",
+        ",\n".join(row(r) for r in records),
+        "on conflict (kind, effective_from) do update set",
+        "  won_per_kwh = excluded.won_per_kwh,",
+        "  source = excluded.source,",
+        "  source_type = excluded.source_type,",
+        "  confidence = excluded.confidence,",
+        "  note = excluded.note;",
+        "",
+    ])
+    return sql, len(records)
+
+
 def price_list_sql(doc: dict, table: str, equipment: bool) -> tuple[str, int]:
     items = doc.get("items", [])
     if not items:
@@ -206,6 +231,8 @@ def main() -> None:
             sql, n = price_list_sql(doc, "renewable_equipment_price", True)
         elif dataset == "misc_price":
             sql, n = price_list_sql(doc, "misc_price", False)
+        elif dataset == "kepco_electricity_surcharge":
+            sql, n = surcharge_sql(doc)
         else:
             continue
         out = OUT / (path.stem + ".sql")

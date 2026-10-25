@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "dataset": "kepco_electricity_surcharge",
+    "title": "기후환경요금 · 연료비조정단가 시계열",
+    "provider": "한국전력공사",
+    "currency": "KRW",
+    "unit": "원/kWh",
+    "updated_at": "2026-10-25",
+    "why_separate": "두 단가는 요금표 개정과 무관하게 따로 바뀐다. 연료비조정단가는 분기마다, 기후환경요금은 연 단위로 조정되므로 요금표 버전이 아니라 자체 시행일을 가진 시계열로 둔다.",
+    "caution": "source_type 이 '보도' 인 값은 한전 공식 고시로 직접 확인하지 못했다. 개발 환경의 네트워크 정책이 한전 사이트 접속을 차단해 1차 자료를 받을 수 없었다. 실제 요금 산정에 쓰기 전에 한전ON 에서 확인할 것.",
+    "formula": "전기요금 = 기본요금 + 전력량요금 + (기후환경요금단가 × 사용전력량) + (연료비조정단가 × 사용전력량)"
+  },
+
+  "climate_charge": [
+    {
+      "effective_from": "2021-01-01",
+      "won_per_kwh": 5.3,
+      "source": "2021-01-01 시행 전기요금표(종합)",
+      "source_type": "요금표",
+      "confidence": "high",
+      "note": "요금표에 '기후환경요금단가 : 5.3원/kWh (21년 1월 기준)' 으로 명시. 레포의 sources/electricity/2021-01-01_종합.pdf 에서 직접 확인."
+    },
+    {
+      "effective_from": "2025-01-01",
+      "won_per_kwh": 9.0,
+      "source": "언론 보도 (2021년 5.3원 → 2025년 9.0원, 약 70% 인상)",
+      "source_type": "보도",
+      "confidence": "medium",
+      "effective_from_confidence": "low",
+      "note": "2025~2026년에 9.0원이 적용 중이라는 보도에 근거. 정확히 언제 9.0원이 되었는지는 확인하지 못했으므로 시행일 2025-01-01 은 추정이다. 2022~2024년 값도 확인하지 못했다. 같은 보도가 2021년 값을 5.3원으로 적어 요금표 원본과 일치하는 점은 신뢰도를 높인다."
+    }
+  ],
+  "climate_charge_gap_note": "2021-01-01 과 2025-01-01 사이의 변동 이력은 확보하지 못했다. 그 기간 요금을 계산할 때 5.3원이 계속 유지됐다고 가정하면 안 된다.",
+
+  "fuel_adjustment": [
+    {"effective_from": "2025-10-01", "period": "2025년 4분기", "won_per_kwh": 5.0,
+     "source": "언론 보도 (2026년 1분기 동결 기사에서 '2025년 4분기와 동일' 로 언급)",
+     "source_type": "보도", "confidence": "medium"},
+    {"effective_from": "2026-01-01", "period": "2026년 1분기", "won_per_kwh": 5.0,
+     "source": "언론 보도 (한전, 2026년 1분기 연료비조정단가 kWh당 5원 유지 발표)",
+     "source_type": "보도", "confidence": "medium"},
+    {"effective_from": "2026-07-01", "period": "2026년 3분기", "won_per_kwh": 5.0,
+     "source": "언론 보도 (4분기 동결 기사에서 '3분기에도 +5원' 으로 언급)",
+     "source_type": "보도", "confidence": "medium"},
+    {"effective_from": "2026-10-01", "period": "2026년 4분기", "won_per_kwh": 5.0,
+     "source": "언론 보도 (한전 2026-09-21 발표, 3분기와 동일한 +5원 유지)",
+     "source_type": "보도", "confidence": "medium"}
+  ],
+  "fuel_adjustment_rule": {
+    "range": "-5원/kWh ~ +5원/kWh",
+    "basis": "직전 3개월간 유연탄·LNG 등 주요 연료비 변동을 반영해 분기마다 결정",
+    "current_state": "상한인 +5원이 계속 적용되고 있다."
+  },
+  "fuel_adjustment_gap_note": "2026년 2분기 값은 확인하지 못했다. 2025년 3분기 이전 이력도 수집하지 않았다."
+}

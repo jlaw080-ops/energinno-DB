@@ -104,6 +104,32 @@ def check_gas(path: Path, doc: dict) -> None:
                 err(path, f"모르는 계절값 {i['season']!r}")
 
 
+def check_surcharge(path: Path, doc: dict) -> None:
+    """기후환경요금·연료비조정단가 시계열 점검."""
+    for key in ("climate_charge", "fuel_adjustment"):
+        rows = doc.get(key, [])
+        if not rows:
+            err(path, f"{key} 가 비어 있습니다")
+            continue
+        dates = [r.get("effective_from") for r in rows]
+        if dates != sorted(d for d in dates if d):
+            err(path, f"{key} 가 시행일 오름차순이 아닙니다")
+        if len(dates) != len(set(dates)):
+            err(path, f"{key} 에 시행일 중복이 있습니다")
+        for r in rows:
+            check_iso_date(path, r.get("effective_from"), f"{key}.effective_from")
+            if not isinstance(r.get("won_per_kwh"), (int, float)):
+                err(path, f"{key}: won_per_kwh 가 숫자가 아닙니다 ({r.get('effective_from')})")
+            if r.get("source_type") not in {"요금표", "보도", "한전공시"}:
+                err(path, f"{key}: source_type 은 요금표/보도/한전공시 중 하나여야 합니다 ({r.get('source_type')!r})")
+            if not r.get("source"):
+                err(path, f"{key}: source 가 비어 있습니다 ({r.get('effective_from')})")
+    unconfirmed = [r for k in ("climate_charge", "fuel_adjustment")
+                   for r in doc.get(k, []) if r.get("source_type") == "보도"]
+    if unconfirmed:
+        warn(path, f"한전 공식 고시로 확인되지 않은 값이 {len(unconfirmed)}건 있습니다 (source_type=보도)")
+
+
 def check_price_list(path: Path, doc: dict, equipment: bool) -> None:
     required = {"slug", "category", "name", "unit_price", "price_unit", "base_date"}
     if equipment:
@@ -147,6 +173,8 @@ def main() -> None:
             check_price_list(path, doc, equipment=True)
         elif dataset == "misc_price":
             check_price_list(path, doc, equipment=False)
+        elif dataset == "kepco_electricity_surcharge":
+            check_surcharge(path, doc)
         else:
             err(path, f"meta.dataset 값을 알 수 없습니다: {dataset!r}")
 

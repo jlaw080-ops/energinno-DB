@@ -43,6 +43,7 @@
 | `pricing.electricity_rate` | 2,934 (요금표 9부) |
 | `pricing.gas_power_generation_monthly` | 180 |
 | `pricing.gas_wholesale_price` | 11 |
+| `pricing.electricity_surcharge` | 6 (기후환경요금·연료비조정단가) |
 
 나머지 요금표는 `sources/electricity/` 에 원본 그대로 보관돼 있습니다.
 그중 **4부(2022-04-01, 2022-07-01, 2023-01-01, 2023-11-09)는 글자가 없는 이미지 PDF**라
@@ -72,5 +73,6 @@ cp .env.example .env
 
 ## 더 읽을 것
 
+- [docs/HOW-TO-QUERY.md](docs/HOW-TO-QUERY.md) — **단가를 꺼내 쓰는 방법 (전기요금 계산 예시 포함)**
 - [docs/DATA-MODEL.md](docs/DATA-MODEL.md) — 각 단가를 어떤 항목으로 저장하는지
 - [docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) — 요금이 바뀌었을 때 갱신하는 방법
