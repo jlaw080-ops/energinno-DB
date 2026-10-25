@@ -179,13 +179,21 @@ create or replace function pricing.calc_demand_bill(
 language plpgsql stable as $$
 declare
     tv    record;
-    ssn   text := coalesce(calc_demand_bill.season,
-              case when extract(month from billing_month) between 6 and 8 then '여름철'
-                   when extract(month from billing_month) in (11, 12, 1, 2)  then '겨울철'
-                   else '봄·가을철' end);
+    -- 계절 이름 체계가 종별마다 다르다. 명시하지 않으면 차례로 시도한다.
+    cands text[] := case
+        when calc_demand_bill.season is not null then array[calc_demand_bill.season]
+        else array[
+            case when extract(month from billing_month) between 6 and 8 then '여름철'
+                 when extract(month from billing_month) in (11,12,1,2)   then '겨울철'
+                 else '봄·가을철' end,
+            case when extract(month from billing_month) in (1,2,6,7,8,11,12) then '여름·겨울철'
+                 else '봄·가을철' end
+        ] end;
+    ssn   text;
     total numeric := coalesce(off_peak_kwh,0) + coalesce(mid_peak_kwh,0)
                    + coalesce(on_peak_kwh,0);
-    unit text; matched integer;
+    unit text; matched integer := 0;
+    avail text;
     basic numeric; energy numeric; climate numeric; fuel numeric;
     elec numeric; vat numeric; fund numeric;
     warn text := null;
@@ -220,21 +228,34 @@ begin
     end if;
     basic := basic * contract_kw;
 
-    select trunc(sum(u.kwh * r.energy_charge)), count(*) into energy, matched
-      from (values ('경부하',   coalesce(off_peak_kwh,0)),
-                   ('중간부하', coalesce(mid_peak_kwh,0)),
-                   ('최대부하', coalesce(on_peak_kwh,0))) as u(tz, kwh)
-      join pricing.electricity_rate r on r.time_zone = u.tz
-     where r.version_id = tv.id
-       and r.contract_type = calc_demand_bill.contract_type
-       and r.voltage     is not distinct from calc_demand_bill.voltage
-       and r.rate_option is not distinct from calc_demand_bill.rate_option
-       and r.season = ssn;
+    foreach ssn in array cands loop
+        select trunc(sum(u.kwh * r.energy_charge)), count(*) into energy, matched
+          from (values ('경부하',   coalesce(off_peak_kwh,0)),
+                       ('중간부하', coalesce(mid_peak_kwh,0)),
+                       ('최대부하', coalesce(on_peak_kwh,0))) as u(tz, kwh)
+          join pricing.electricity_rate r on r.time_zone = u.tz
+         where r.version_id = tv.id
+           and r.contract_type = calc_demand_bill.contract_type
+           and r.voltage     is not distinct from calc_demand_bill.voltage
+           and r.rate_option is not distinct from calc_demand_bill.rate_option
+           and r.season = ssn;
+        exit when coalesce(matched,0) = 3;
+    end loop;
+
     -- 계절별 요금(일반용(갑)Ⅰ 등)에는 시간대 요율이 없다. 그때 0 이 잡힌다.
     if coalesce(matched, 0) <> 3 then
-        raise exception '% / % / % / % 의 시간대 요율이 3개가 아니라 %개 잡혔습니다. 이 종별이 시간대별 요금인지 확인하세요',
+        select string_agg(distinct coalesce(r.season,'(없음)'), ', ') into avail
+          from pricing.electricity_rate r
+         where r.version_id = tv.id
+           and r.contract_type = calc_demand_bill.contract_type
+           and r.voltage     is not distinct from calc_demand_bill.voltage
+           and r.rate_option is not distinct from calc_demand_bill.rate_option
+           and r.time_zone is not null;
+        raise exception '% / % / % 의 시간대 요율이 3개가 아니라 %개 잡혔습니다. 시도한 계절: %. 이 조합의 시간대별 계절: %',
             calc_demand_bill.contract_type, calc_demand_bill.voltage,
-            calc_demand_bill.rate_option, ssn, coalesce(matched, 0);
+            calc_demand_bill.rate_option, coalesce(matched,0),
+            array_to_string(cands, ', '),
+            coalesce(avail, '(시간대별 요율이 없음 — 계절별 요금이면 calc_seasonal_bill 을 쓰세요)');
     end if;
 
     select s.won_per_kwh into climate from pricing.electricity_surcharge s

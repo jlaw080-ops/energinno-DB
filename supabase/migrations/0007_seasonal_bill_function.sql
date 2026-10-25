@@ -53,8 +53,8 @@
 create or replace function pricing.calc_seasonal_bill(
     contract_type   text,
     voltage         text,
-    rate_option     text,     -- 저압·심야전력은 null
-    contract_kw     numeric,  -- 기본요금이 없는 종별은 null
+    rate_option     text,     -- 저압·심야전력·농사용 갑은 null
+    contract_kw     numeric,  -- 기본요금 단가가 없는 종별은 null
     billing_month   date,
     usage_kwh       numeric,
     season          text default null
@@ -62,13 +62,20 @@ create or replace function pricing.calc_seasonal_bill(
 language plpgsql stable as $$
 declare
     tv      record;
-    cand1   text := case when extract(month from billing_month) between 6 and 8 then '여름철'
-                         when extract(month from billing_month) in (11,12,1,2)   then '겨울철'
-                         else '봄·가을철' end;
-    cand2   text := case when extract(month from billing_month) in (11,12,1,2) then '겨울철'
-                         else '기타계절' end;
+    -- 종별마다 계절 이름 체계가 다르다. 명시하지 않으면 차례로 시도한다.
+    cands   text[] := case
+        when calc_seasonal_bill.season is not null then array[calc_seasonal_bill.season]
+        else array[
+            case when extract(month from billing_month) between 6 and 8 then '여름철'
+                 when extract(month from billing_month) in (11,12,1,2)   then '겨울철'
+                 else '봄·가을철' end,
+            case when extract(month from billing_month) in (11,12,1,2) then '겨울철'
+                 else '기타계절' end,
+            '연중'
+        ] end;
     ssn     text;
     rate    record;
+    hit     boolean := false;
     avail   text;
     basic numeric; energy numeric; climate numeric; fuel numeric;
     elec numeric; vat numeric; fund numeric;
@@ -82,44 +89,41 @@ begin
                     where r.version_id = tv2.id
                       and r.contract_type = calc_seasonal_bill.contract_type)
      order by tv2.effective_from desc limit 1;
-    if tv is null then
+    if not found then
         raise exception '% 시점에 적용할 % 요금표가 없습니다',
             billing_month, calc_seasonal_bill.contract_type;
     end if;
 
-    -- 계절 이름이 종별마다 다르다. 명시하지 않으면 두 체계를 차례로 시도한다.
-    ssn := coalesce(calc_seasonal_bill.season, cand1);
-    select * into rate from pricing.electricity_rate r
-     where r.version_id = tv.id
-       and r.contract_type = calc_seasonal_bill.contract_type
-       and r.voltage     is not distinct from calc_seasonal_bill.voltage
-       and r.rate_option is not distinct from calc_seasonal_bill.rate_option
-       and r.season = ssn and r.time_zone is null and r.tier is null;
-
-    if rate is null and calc_seasonal_bill.season is null then
-        ssn := cand2;
+    -- 주의: record 변수에 'is not null' 을 쓰면 안 된다. Postgres 복합타입에서
+    -- rec IS NOT NULL 은 '모든 필드가 비어있지 않음' 을 뜻하므로, rate_option 이나
+    -- tier 가 비어 있는 정상 행을 찾아도 거짓이 된다. 조회 성공 여부는 found 로 본다.
+    foreach ssn in array cands loop
         select * into rate from pricing.electricity_rate r
          where r.version_id = tv.id
            and r.contract_type = calc_seasonal_bill.contract_type
            and r.voltage     is not distinct from calc_seasonal_bill.voltage
            and r.rate_option is not distinct from calc_seasonal_bill.rate_option
            and r.season = ssn and r.time_zone is null and r.tier is null;
-    end if;
+        if found then
+            hit := true;
+            exit;
+        end if;
+    end loop;
 
-    if rate is null then
+    if not hit then
         select string_agg(distinct coalesce(r.season,'(없음)'), ', ') into avail
           from pricing.electricity_rate r
          where r.version_id = tv.id
            and r.contract_type = calc_seasonal_bill.contract_type
            and r.voltage     is not distinct from calc_seasonal_bill.voltage
-           and r.rate_option is not distinct from calc_seasonal_bill.rate_option;
-        raise exception '% / % / % 에 계절 % 요율이 없습니다. 이 조합에 있는 계절: %',
+           and r.rate_option is not distinct from calc_seasonal_bill.rate_option
+           and r.time_zone is null and r.tier is null;
+        raise exception '% / % / % 에 맞는 계절 요율이 없습니다. 시도한 계절: %. 이 조합에 있는 계절: %',
             calc_seasonal_bill.contract_type, calc_seasonal_bill.voltage,
-            calc_seasonal_bill.rate_option, ssn, coalesce(avail, '(해당 조합 자체가 없음)');
+            calc_seasonal_bill.rate_option, array_to_string(cands, ', '),
+            coalesce(avail, '(계절별 요율이 없음 — 시간대별 요금이면 calc_demand_bill 을 쓰세요)');
     end if;
 
-    -- 기본요금 단가가 없는 종별(심야전력(갑) 등)은 계약전력도 null 이어야 한다.
-    -- 한쪽만 주어지면 조용히 0 원으로 넘기지 말고 예외를 던진다.
     if rate.basic_charge is null and contract_kw is null then
         basic := 0;
         warn := '이 종별은 기본요금 단가가 없다 (전력량요금만 부과)';
@@ -138,22 +142,29 @@ begin
         end if;
     end if;
 
+    -- 가로등 갑(정액등)처럼 전력량요금 단가가 없는 정액 종별은 이 함수로 계산할 수 없다.
+    if rate.energy_charge is null then
+        raise exception '% / % 는 전력량요금 단가가 없습니다 (정액 종별). 이 함수로 계산할 수 없습니다',
+            calc_seasonal_bill.contract_type, calc_seasonal_bill.voltage;
+    end if;
     energy := trunc(coalesce(usage_kwh,0) * rate.energy_charge);
 
     select s.won_per_kwh into climate from pricing.electricity_surcharge s
      where s.kind = '기후환경요금' and s.effective_from <= billing_month
      order by s.effective_from desc limit 1;
-    select s.won_per_kwh into fuel from pricing.electricity_surcharge s
-     where s.kind = '연료비조정단가' and s.effective_from <= billing_month
-     order by s.effective_from desc limit 1;
-    if climate is null then
+    if not found then
         climate := 0;
         warn := concat_ws(' / ', warn, '기후환경요금 단가를 찾지 못해 0 으로 계산했다');
     end if;
-    if fuel is null then
+    select s.won_per_kwh into fuel from pricing.electricity_surcharge s
+     where s.kind = '연료비조정단가' and s.effective_from <= billing_month
+     order by s.effective_from desc limit 1;
+    if not found then
         fuel := 0;
         warn := concat_ws(' / ', warn, '연료비조정단가를 찾지 못해 0 으로 계산했다');
     end if;
+    climate := coalesce(climate, 0);
+    fuel    := coalesce(fuel, 0);
 
     climate := trunc(climate * coalesce(usage_kwh,0));
     fuel    := trunc(fuel * coalesce(usage_kwh,0));
@@ -182,6 +193,6 @@ end $$;
 
 
 comment on function pricing.calc_seasonal_bill is
-    '계절별 요금(일반용(갑)Ⅰ·산업용(갑)Ⅰ·교육용(갑)·심야전력) 계산. '
+    '계절별 요금(일반용(갑)Ⅰ·산업용(갑)Ⅰ·교육용(갑)·심야전력·농사용·가로등 을) 계산. '
     '선택Ⅰ/Ⅱ 손익분기점(265kWh/kW)과 손계산으로 검증했다. '
     '역률요금과 각종 할인은 반영하지 않는다.';

@@ -33,9 +33,15 @@ def digest(lines: list[str]) -> str:
     return hashlib.md5("\n".join(sorted(lines)).encode("utf-8")).hexdigest()
 
 
-def electricity_lines(doc: dict) -> list[str]:
+def electricity_lines(doc: dict, tariffs: list[dict] | None = None) -> list[str]:
+    """요율 한 줄씩을 표준 문자열로. tariffs 를 주면 그 종별만 센다.
+
+    한 요금표 안에서 종별마다 시행일이 다르면 DB 에는 시행일별 버전으로
+    나뉘어 들어간다(export_sql.py 참고). 그래서 대조도 같은 기준으로 나눠야
+    행수와 체크섬이 맞는다.
+    """
     lines = []
-    for t in doc["tariffs"]:
+    for t in (tariffs if tariffs is not None else doc["tariffs"]):
         ct, rs = t["contract_type"], t["rate_structure"]
         for r in t["rates"]:
             volt = r.get("voltage") or r.get("class") or ""
@@ -129,7 +135,12 @@ def main() -> None:
             continue
         label, build = spec
         if label == "전기요금":
-            label += " " + min(t["effective_from"] for t in doc["tariffs"])
+            # 시행일별로 쪼개서 DB 의 버전 구분과 맞춘다
+            for eff in sorted({t["effective_from"] for t in doc["tariffs"]}):
+                tariffs = [t for t in doc["tariffs"] if t["effective_from"] <= eff]
+                lines = electricity_lines(doc, tariffs)
+                print(f"{label + ' ' + eff:<22} {len(lines):>6}  {digest(lines)}")
+            continue
         lines = build(doc)
         print(f"{label:<22} {len(lines):>6}  {digest(lines)}")
     print("\nDB 쪽 값은 `python3 scripts/checksum.py --sql` 의 SQL 로 확인하세요.")

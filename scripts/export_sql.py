@@ -31,9 +31,9 @@ def row(values) -> str:
     return "  (" + ", ".join(q(v) for v in values) + ")"
 
 
-def covered(doc: dict) -> str:
-    """이 요금표가 담고 있는 계약종별 목록을 Postgres 배열 리터럴로."""
-    kinds = sorted({t["contract_type"] for t in doc["tariffs"]})
+def covered(tariffs: list[dict]) -> str:
+    """이 버전이 담고 있는 계약종별 목록을 Postgres 배열 리터럴로."""
+    kinds = sorted({t["contract_type"] for t in tariffs})
     inner = ",".join('"' + k.replace('"', '\\"') + '"' for k in kinds)
     return "{" + inner + "}"
 
@@ -57,12 +57,55 @@ def rate_note(tariff: dict, rate: dict) -> str | None:
     return " / ".join(parts) or None
 
 
-def electricity_sql(doc: dict) -> str:
+def electricity_sql(doc: dict) -> tuple[str, int]:
+    """한 요금표 PDF 를 시행일별 버전으로 쪼개서 SQL 로 만든다.
+
+    한 장의 종합요금표 안에서도 종별마다 시행일이 다를 수 있다.
+    2026-04-16 요금표가 그렇다 — 산업용(을)만 4월 16일 시행이고
+    나머지 15개 종별은 6월 1일 시행이다 (요금표 주석).
+
+    이걸 하나의 버전으로 뭉치면 5월분을 계산할 때 아직 시행되지 않은
+    6월 요율이 적용된다. 그래서 시행일마다 버전을 하나씩 만들고,
+    각 버전에는 '그 날짜까지 시행된' 종별만 담는다.
+
+      버전 2026-04-16 : 산업용(을)만            (is_partial = true)
+      버전 2026-06-01 : 16개 종별 전부           (is_partial = false)
+
+    계산 함수는 "해당 종별이 들어 있는 가장 최근 버전" 을 고르므로,
+    5월분 일반용(갑)Ⅰ 은 자동으로 직전 요금표(2025-04-01)로 떨어진다.
+    """
+    dates = sorted({t["effective_from"] for t in doc["tariffs"]})
+    blocks: list[str] = []
+    total = 0
+    for eff in dates:
+        # 그 날짜까지 시행된 종별만 담는다 (이후 시행 종별은 아직 적용 안 됨)
+        tariffs = [t for t in doc["tariffs"] if t["effective_from"] <= eff]
+        label = doc["meta"]["published_label"]
+        if len(dates) > 1:
+            # 한 요금표가 여러 시행일로 쪼개지면 라벨도 날짜별로 구분해야
+            # 조회 결과에서 "4월 16일 시행" 이 6월 요율에 붙는 혼동이 없다.
+            y, m, d = eff.split("-")
+            own = f"{y}년 {int(m)}월 {int(d)}일 시행"
+            # 요금표 제목의 시행일과 같으면 괄호를 붙이지 않는다
+            label = own if own == label else f"{own} ({label} 요금표)"
+        sql, n = _one_version_sql(doc, eff, tariffs, label,
+                                  all_covered=len(tariffs) == len(doc["tariffs"]))
+        blocks.append(sql)
+        total += n
+    return "\n".join(blocks), total
+
+
+def _one_version_sql(doc: dict, eff: str, tariffs: list[dict], label: str,
+                     all_covered: bool) -> tuple[str, int]:
     meta, tax, sur = doc["meta"], doc["taxes"], doc["surcharges"]
-    eff = min(t["effective_from"] for t in doc["tariffs"])
+    partial = bool(meta.get("is_partial")) or not all_covered
+    split_note = None
+    if not all_covered:
+        split_note = ("이 요금표 안에서 " + eff + " 시행인 종별만 담긴 버전이다. "
+                      "나머지 종별은 같은 요금표의 다른 시행일 버전에 있다.")
 
     lines = [
-        "-- 전기요금: " + meta["title"] + " (" + meta["published_label"] + ")",
+        "-- 전기요금: " + meta["title"] + " (" + label + ")",
         "-- 원본: " + meta["source_file"],
         "",
         "insert into pricing.electricity_tariff_version",
@@ -70,11 +113,12 @@ def electricity_sql(doc: dict) -> str:
         "   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh,",
         "   is_partial, covered_contract_types, note)",
         "values",
-        row([eff, meta["published_label"], meta["provider"], meta["source_file"],
+        row([eff, label, meta["provider"], meta["source_file"],
              tax["vat_rate"], tax["power_industry_fund_rate"],
              sur["climate_charge_won_per_kwh"], sur["fuel_adjustment_won_per_kwh"],
-             bool(meta.get("is_partial")), covered(doc),
-             " ".join(x for x in (meta.get("effective_note"),
+             partial, covered(tariffs),
+             " ".join(x for x in (split_note,
+                                  meta.get("effective_note"),
                                   meta.get("coverage_note"),
                                   meta.get("derivation_note")) if x) or None]),
         "on conflict (effective_from, source_file) do update set",
@@ -99,7 +143,7 @@ def electricity_sql(doc: dict) -> str:
     ]
 
     records = []
-    for t in doc["tariffs"]:
+    for t in tariffs:
         ct, rs, cp = t["contract_type"], t["rate_structure"], t.get("contract_power")
         for r in t["rates"]:
             volt = r.get("voltage") or r.get("class")
