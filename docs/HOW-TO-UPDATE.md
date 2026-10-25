@@ -249,6 +249,19 @@ select * from pricing.calc_residential_bill(450, '저압', '2025-07-15');
 
 자세한 사용법은 `docs/HOW-TO-QUERY.md` 9절에 있습니다.
 
+함수를 고쳤다면 레포 파일과 DB 가 같은지도 확인하세요.
+0006 은 마이그레이션 도구가 아니라 SQL Editor 로 직접 적용하므로
+"파일만 고치고 DB 에는 안 올림" 이 생길 수 있습니다.
+
+```bash
+python3 scripts/verify_functions_match.py        # 레포 쪽 해시
+python3 scripts/verify_functions_match.py --sql  # 이 SQL 을 SQL Editor 에서 실행
+```
+
+해시가 다르면 `supabase/migrations/0006_fix_bill_functions_ambiguity.sql` 을
+SQL Editor 에 붙여넣고 Run 하면 맞춰집니다. `create or replace` 뿐이라
+여러 번 실행해도 안전합니다.
+
 > ⚠️ 기후환경요금·연료비조정단가는 `electricity_tariff_version` 의
 > `climate_charge_per_kwh` / `fuel_adjustment_per_kwh` 칸이 아니라
 > **`pricing.electricity_surcharge` 표**에서 읽습니다. 분기마다 바뀌는 값이라
