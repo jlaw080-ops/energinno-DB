@@ -44,6 +44,7 @@
 | `pricing.gas_power_generation_monthly` | 180 |
 | `pricing.gas_wholesale_price` | 11 |
 | `pricing.electricity_surcharge` | 12 (기후환경요금·연료비조정단가) |
+| `pricing.residential_welfare_discount` | 9 (주택용 복지할인) |
 
 나머지 요금표는 `sources/electricity/` 에 원본 그대로 보관돼 있습니다.
 그중 **4부(2022-04-01, 2022-07-01, 2023-01-01, 2023-11-09)는 글자가 없는 이미지 PDF**라

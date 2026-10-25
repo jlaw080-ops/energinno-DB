@@ -7,8 +7,10 @@
 단가를 수정한 뒤 커밋하기 전에 돌리면 형식 실수를 미리 잡을 수 있다.
 """
 import json
+import math
 import sys
 from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -104,6 +106,50 @@ def check_gas(path: Path, doc: dict) -> None:
                 err(path, f"모르는 계절값 {i['season']!r}")
 
 
+def half_up(value: float) -> int:
+    """원 미만 4사5입. 파이썬 round() 는 은행가 반올림이라 9588.5 를 9588 로 만든다."""
+    return int(Decimal(str(value)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
+def check_welfare(path: Path, doc: dict) -> None:
+    """복지할인 항목과, 한전이 인쇄한 요금계산 예시의 산술을 점검한다.
+
+    예시의 숫자를 우리가 옮겨 적은 것이므로, 합이 맞는지 다시 계산해 보면
+    전사 오류를 잡을 수 있다.
+    """
+    for w in doc.get("welfare_discount", []):
+        if not w.get("target"):
+            err(path, "복지할인 target 이 비어 있습니다")
+        if w.get("type") not in {"정액할인", "정률할인"}:
+            err(path, f"{w.get('target')}: type 은 정액할인/정률할인 중 하나여야 합니다")
+        if w["type"] == "정률할인" and not w.get("percent"):
+            err(path, f"{w.get('target')}: 정률할인인데 percent 가 없습니다")
+        if w["type"] == "정액할인" and not w.get("monthly_cap"):
+            err(path, f"{w.get('target')}: 정액할인인데 monthly_cap 이 없습니다")
+
+    fund_rate = 0.037   # 2024-01-01 요금표 기준
+    examples = [("단일가구 예시", doc.get("single_household_example")),
+                ("1주택수가구 예시",
+                 (doc.get("multi_household_single_meter") or {}).get("worked_example"))]
+    for label, ex in examples:
+        if not ex:
+            continue
+        parts = sum(ex[k]["값"] for k in
+                    ("기본요금", "전력량요금", "기후환경요금", "연료비조정요금"))
+        if parts != ex["전기요금계"]:
+            err(path, f"{label}: 항목 합 {parts:,} 가 전기요금계 {ex['전기요금계']:,} 와 다릅니다")
+        vat = half_up(ex["전기요금계"] * 0.10)
+        if vat != ex["부가가치세"]["값"]:
+            err(path, f"{label}: 부가가치세 계산 {vat:,} ≠ 적힌 값 {ex['부가가치세']['값']:,}")
+        fund = math.floor(ex["전기요금계"] * fund_rate / 10) * 10
+        if fund != ex["전력기반기금"]["값"]:
+            err(path, f"{label}: 전력기반기금 계산 {fund:,} ≠ 적힌 값 {ex['전력기반기금']['값']:,}")
+        total = math.floor((ex["전기요금계"] + ex["부가가치세"]["값"]
+                            + ex["전력기반기금"]["값"]) / 10) * 10
+        if total != ex["청구금액"]["값"]:
+            err(path, f"{label}: 청구금액 계산 {total:,} ≠ 적힌 값 {ex['청구금액']['값']:,}")
+
+
 def check_surcharge(path: Path, doc: dict) -> None:
     """기후환경요금·연료비조정단가 시계열 점검."""
     for key in ("climate_charge", "fuel_adjustment"):
@@ -175,6 +221,8 @@ def main() -> None:
             check_price_list(path, doc, equipment=False)
         elif dataset == "kepco_electricity_surcharge":
             check_surcharge(path, doc)
+        elif dataset == "kepco_residential_welfare_discount":
+            check_welfare(path, doc)
         else:
             err(path, f"meta.dataset 값을 알 수 없습니다: {dataset!r}")
 
