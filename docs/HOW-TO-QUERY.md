@@ -105,7 +105,33 @@ order by discount_type, monthly_cap nulls last;
 `data/electricity/주택용_복지할인.json` 의 `multi_household_single_meter` 에 있습니다.
 가구별 평균사용량으로 누진단계를 적용해 누진 부담을 덜어주는 방식입니다.
 
-## 5. 과거 시점 요금 계산 — ⚠️ 빠진 데이터 주의
+## 5. ⚠️ 불완전한 시행일 — 빈 결과를 "요금 없음" 으로 읽지 마세요
+
+종합요금표가 글자 없는 이미지 PDF 라서 **주택용만 확보한 시행일**이 3개 있습니다.
+
+| 시행일 | 수록 종별 |
+|---|---|
+| 2022-04-01 | 주택용전력만 |
+| 2022-10-01 | 주택용전력만 |
+| 2023-11-09 | 주택용전력만 |
+
+이 시점에 일반용·산업용을 조회하면 **빈 결과**가 나옵니다.
+"그 종별 요금이 0원" 이 아니라 **"아직 데이터를 넣지 못함"** 입니다.
+조회 전에 확인하세요.
+
+```sql
+select * from pricing.electricity_tariff_coverage;
+```
+
+```sql
+-- 쓰려는 시점이 불완전한지 먼저 보기
+select effective_from, published_label, is_partial, covered_contract_types
+from pricing.electricity_tariff_version
+where effective_from <= '2022-06-01'
+order by effective_from desc limit 1;
+```
+
+## 6. 과거 시점 요금 계산 — ⚠️ 빠진 데이터 주의
 
 요금표와 부가요금 모두 시계열이라 **과거 시점 요금도 계산됩니다.**
 같은 건물·같은 사용량으로 연도를 바꿔 보면 인상 폭이 바로 보입니다.
@@ -140,7 +166,7 @@ left join lateral (
 ) x on true;
 ```
 
-## 6. 연도별 요금 추이 보기
+## 7. 연도별 요금 추이 보기
 
 ```sql
 select v.effective_from as 시행일, r.energy_charge as "전력량요금(원/kWh)"
@@ -161,7 +187,7 @@ where r.contract_type = '농사용전력' and r.voltage = '갑'
 order by v.effective_from;
 ```
 
-## 7. 가스요금
+## 8. 가스요금
 
 ```sql
 -- 용도별 도매요금 (원/MJ)

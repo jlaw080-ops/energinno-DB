@@ -3,13 +3,16 @@
 
 insert into pricing.electricity_tariff_version
   (effective_from, published_label, provider, source_file,
-   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh, note)
+   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh,
+   is_partial, covered_contract_types, note)
 values
-  ('2024-10-24', '2024년 10월 24일 시행', '한국전력공사', 'sources/electricity/2024-10-24_종합.pdf', 0.1, 0.032, NULL, NULL, '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2024-10-24 시행')
+  ('2024-10-24', '2024년 10월 24일 시행', '한국전력공사', 'sources/electricity/2024-10-24_종합.pdf', 0.1, 0.032, NULL, NULL, FALSE, '{"가로등","교육용전력(갑)","교육용전력(을)","농사용전력","산업용전력(갑)Ⅰ","산업용전력(갑)Ⅱ","산업용전력(을)","심야전력(갑)","심야전력(을)Ⅰ","심야전력(을)Ⅱ","일반용전력(갑)Ⅰ","일반용전력(갑)Ⅱ","일반용전력(을)","주택용 계시별","주택용전력"}', '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2024-10-24 시행 3페이지 및 전기자동차 충전전력요금은 미포함 2025-01-01 요금표와 대조한 결과 농사용전력 전력량요금만 다르고 나머지 종별·시간대 구분·할인은 동일함을 확인했다.')
 on conflict (effective_from, source_file) do update set
   published_label = excluded.published_label,
   vat_rate = excluded.vat_rate,
   power_fund_rate = excluded.power_fund_rate,
+  is_partial = excluded.is_partial,
+  covered_contract_types = excluded.covered_contract_types,
   note = excluded.note;
 
 -- 같은 버전의 기존 요율을 지우고 다시 넣는다 (부분 수정 시 꼬이지 않도록)

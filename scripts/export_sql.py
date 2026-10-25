@@ -31,6 +31,13 @@ def row(values) -> str:
     return "  (" + ", ".join(q(v) for v in values) + ")"
 
 
+def covered(doc: dict) -> str:
+    """이 요금표가 담고 있는 계약종별 목록을 Postgres 배열 리터럴로."""
+    kinds = sorted({t["contract_type"] for t in doc["tariffs"]})
+    inner = ",".join('"' + k.replace('"', '\\"') + '"' for k in kinds)
+    return "{" + inner + "}"
+
+
 def rate_note(tariff: dict, rate: dict) -> str | None:
     """요율 한 줄에 함께 남겨둘 단서(월 최저요금, 슈퍼유저요금, 할인 등)."""
     parts: list[str] = []
@@ -60,16 +67,22 @@ def electricity_sql(doc: dict) -> str:
         "",
         "insert into pricing.electricity_tariff_version",
         "  (effective_from, published_label, provider, source_file,",
-        "   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh, note)",
+        "   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh,",
+        "   is_partial, covered_contract_types, note)",
         "values",
         row([eff, meta["published_label"], meta["provider"], meta["source_file"],
              tax["vat_rate"], tax["power_industry_fund_rate"],
              sur["climate_charge_won_per_kwh"], sur["fuel_adjustment_won_per_kwh"],
-             meta["effective_note"]]),
+             bool(meta.get("is_partial")), covered(doc),
+             " ".join(x for x in (meta.get("effective_note"),
+                                  meta.get("coverage_note"),
+                                  meta.get("derivation_note")) if x) or None]),
         "on conflict (effective_from, source_file) do update set",
         "  published_label = excluded.published_label,",
         "  vat_rate = excluded.vat_rate,",
         "  power_fund_rate = excluded.power_fund_rate,",
+        "  is_partial = excluded.is_partial,",
+        "  covered_contract_types = excluded.covered_contract_types,",
         "  note = excluded.note;",
         "",
         "-- 같은 버전의 기존 요율을 지우고 다시 넣는다 (부분 수정 시 꼬이지 않도록)",

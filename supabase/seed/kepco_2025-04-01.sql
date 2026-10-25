@@ -3,13 +3,16 @@
 
 insert into pricing.electricity_tariff_version
   (effective_from, published_label, provider, source_file,
-   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh, note)
+   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh,
+   is_partial, covered_contract_types, note)
 values
-  ('2025-04-01', '2025년 4월 1일 시행', '한국전력공사', 'sources/electricity/2025-04-01_종합.pdf', 0.1, 0.027, NULL, NULL, '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2025-04-01 시행')
+  ('2025-04-01', '2025년 4월 1일 시행', '한국전력공사', 'sources/electricity/2025-04-01_종합.pdf', 0.1, 0.027, NULL, NULL, FALSE, '{"가로등","교육용전력(갑)","교육용전력(을)","농사용전력","산업용전력(갑)Ⅰ","산업용전력(갑)Ⅱ","산업용전력(을)","심야전력(갑)","심야전력(을)Ⅰ","심야전력(을)Ⅱ","일반용전력(갑)Ⅰ","일반용전력(갑)Ⅱ","일반용전력(을)","주택용 계시별","주택용전력"}', '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2025-04-01 시행 3페이지 및 전기자동차 충전전력요금은 미포함 2026-04-16 요금표와 표 단위로 대조한 결과 산업용전력(을)을 제외한 모든 종별의 값이 동일함을 확인하고, 산업용전력(을)만 이 요금표에서 다시 추출했다. 산업용전력(을)의 봄·가을철 주말 할인과 여름철·봄가을철 시간대 구분은 2026-04-16 에서 달라진 항목이라 이 요금표 기준으로 바로잡았다.')
 on conflict (effective_from, source_file) do update set
   published_label = excluded.published_label,
   vat_rate = excluded.vat_rate,
   power_fund_rate = excluded.power_fund_rate,
+  is_partial = excluded.is_partial,
+  covered_contract_types = excluded.covered_contract_types,
   note = excluded.note;
 
 -- 같은 버전의 기존 요율을 지우고 다시 넣는다 (부분 수정 시 꼬이지 않도록)

@@ -3,13 +3,16 @@
 
 insert into pricing.electricity_tariff_version
   (effective_from, published_label, provider, source_file,
-   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh, note)
+   vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh,
+   is_partial, covered_contract_types, note)
 values
-  ('2024-04-01', '2024년 4월 1일 시행', '한국전력공사', 'sources/electricity/2024-04-01_종합.pdf', 0.1, 0.037, NULL, NULL, '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2024-04-01 시행')
+  ('2024-04-01', '2024년 4월 1일 시행', '한국전력공사', 'sources/electricity/2024-04-01_종합.pdf', 0.1, 0.037, NULL, NULL, FALSE, '{"가로등","교육용전력(갑)","교육용전력(을)","농사용전력","산업용전력(갑)Ⅰ","산업용전력(갑)Ⅱ","산업용전력(을)","심야전력(갑)","심야전력(을)Ⅰ","심야전력(을)Ⅱ","일반용전력(갑)Ⅰ","일반용전력(갑)Ⅱ","일반용전력(을)","주택용 계시별","주택용전력"}', '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2024-04-01 시행 3페이지 및 전기자동차 충전전력요금은 미포함 2024-07-01 요금표와 1·2페이지 전 종별을 육안 대조한 결과 완전히 동일했다. 주택용·교육용(갑)(을)·일반용(갑)Ⅰ·Ⅱ·(을)·산업용(갑)Ⅰ·Ⅱ·(을)·농사용·가로등·주택용 계시별 모두 같은 값이다. 2024-07-01 개정은 1·2페이지 요율을 바꾸지 않았다.')
 on conflict (effective_from, source_file) do update set
   published_label = excluded.published_label,
   vat_rate = excluded.vat_rate,
   power_fund_rate = excluded.power_fund_rate,
+  is_partial = excluded.is_partial,
+  covered_contract_types = excluded.covered_contract_types,
   note = excluded.note;
 
 -- 같은 버전의 기존 요율을 지우고 다시 넣는다 (부분 수정 시 꼬이지 않도록)
