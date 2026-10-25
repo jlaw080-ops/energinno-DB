@@ -112,10 +112,38 @@ union all
 select '부가요금', count(*), md5(string_agg(line, E'\\n' order by line)) from (
   select kind||'|'||effective_from::text||'|'||won_per_kwh::float8::text||'|'||
          source_type||'|'||confidence as line
-  from pricing.electricity_surcharge) sc;"""
+  from pricing.electricity_surcharge) sc
+union all
+-- 신재생 장비 단가
+select '장비단가', count(*), md5(string_agg(line, E'\\n' order by line)) from (
+  select slug||'|'||category||'|'||coalesce(subcategory,'')||'|'||name||'|'||
+         cost_type||'|'||unit_price::float8::text||'|'||price_unit||'|'||
+         base_date::text as line
+  from pricing.renewable_equipment_price) eq
+union all
+-- 기타 단가
+select '기타단가', count(*), md5(string_agg(line, E'\\n' order by line)) from (
+  select slug||'|'||category||'|'||name||'|'||unit_price::float8::text||'|'||
+         price_unit||'|'||base_date::text as line
+  from pricing.misc_price) mp;"""
+
+def equipment_lines(doc: dict) -> list[str]:
+    return ["|".join([i["slug"], i["category"], i.get("subcategory") or "",
+                      i["name"], i["cost_type"], pg(i["unit_price"]),
+                      i["price_unit"], i["base_date"]])
+            for i in doc.get("items", [])]
+
+
+def misc_lines(doc: dict) -> list[str]:
+    return ["|".join([i["slug"], i["category"], i["name"],
+                      pg(i["unit_price"]), i["price_unit"], i["base_date"]])
+            for i in doc.get("items", [])]
+
 
 BUILDERS = {
     "kepco_electricity_tariff": ("전기요금", electricity_lines),
+    "renewable_equipment_price": ("장비단가", equipment_lines),
+    "misc_price": ("기타단가", misc_lines),
     "kogas_power_generation_monthly": ("가스 월별", gas_monthly_lines),
     "kogas_wholesale": ("가스 도매요금", gas_wholesale_lines),
     "kepco_electricity_surcharge": ("부가요금", surcharge_lines),
