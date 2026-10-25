@@ -59,6 +59,14 @@ def gas_monthly_lines(doc: dict) -> list[str]:
                       pg(s["supply_cost_won_per_gj"])]) for s in doc["series"]]
 
 
+def surcharge_lines(doc: dict) -> list[str]:
+    return ["|".join([kind, r["effective_from"], pg(r["won_per_kwh"]),
+                      r["source_type"], r["confidence"]])
+            for kind, key in (("기후환경요금", "climate_charge"),
+                              ("연료비조정단가", "fuel_adjustment"))
+            for r in doc.get(key, [])]
+
+
 def gas_wholesale_lines(doc: dict) -> list[str]:
     return ["|".join([i["sector"], i["use"], i["season"], pg(i["feedstock_cost_won_per_mj"]),
                       pg(i["supply_cost_won_per_mj"]), pg(i["wholesale_price_won_per_mj"])])
@@ -92,12 +100,19 @@ union all
 select '가스 도매요금', count(*), md5(string_agg(line, E'\\n' order by line)) from (
   select sector||'|'||use_type||'|'||season||'|'||feedstock_cost::float8::text||'|'||
          supply_cost::float8::text||'|'||wholesale_price::float8::text as line
-  from pricing.gas_wholesale_price) w;"""
+  from pricing.gas_wholesale_price) w
+union all
+-- 기후환경요금 · 연료비조정단가
+select '부가요금', count(*), md5(string_agg(line, E'\\n' order by line)) from (
+  select kind||'|'||effective_from::text||'|'||won_per_kwh::float8::text||'|'||
+         source_type||'|'||confidence as line
+  from pricing.electricity_surcharge) sc;"""
 
 BUILDERS = {
     "kepco_electricity_tariff": ("전기요금", electricity_lines),
     "kogas_power_generation_monthly": ("가스 월별", gas_monthly_lines),
     "kogas_wholesale": ("가스 도매요금", gas_wholesale_lines),
+    "kepco_electricity_surcharge": ("부가요금", surcharge_lines),
 }
 
 
