@@ -74,6 +74,7 @@ cp .env.example .env
 
 ## 더 읽을 것
 
+- [docs/HOW-TO-USE-API.md](docs/HOW-TO-USE-API.md) — **다른 앱(Vercel 등)에서 불러 쓰는 방법**
 - [docs/HOW-TO-QUERY.md](docs/HOW-TO-QUERY.md) — **단가를 꺼내 쓰는 방법**
   - 전기요금은 함수 한 줄로 계산됩니다: `select * from pricing.calc_residential_bill(450, '저압', '2025-07-15');`
   - 한전이 요금표에 인쇄해 둔 계산 예시와 전 항목 1원 단위로 대조해 검증했습니다.

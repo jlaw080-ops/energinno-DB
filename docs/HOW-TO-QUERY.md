@@ -396,8 +396,12 @@ select * from pricing.calc_seasonal_bill(
 
 ## 다른 앱에서 REST API 로 읽으려면
 
-`pricing` 스키마는 기본적으로 API 에 공개돼 있지 않습니다.
+👉 **자세한 방법은 [HOW-TO-USE-API.md](HOW-TO-USE-API.md) 에 따로 정리했습니다.**
+Vercel 배포, 환경변수, 함수 호출, 자주 나는 오류까지 들어 있습니다.
+
+요약하면, `pricing` 스키마는 기본적으로 API 에 공개돼 있지 않습니다.
 Supabase 대시보드 → Project Settings → API → **Exposed schemas** 에 `pricing` 을 추가하세요.
+권한(`grant`)은 `supabase/migrations/0008_rest_api_grants.sql` 로 이미 열어 두었습니다.
 
 ```js
 const { data } = await supabase

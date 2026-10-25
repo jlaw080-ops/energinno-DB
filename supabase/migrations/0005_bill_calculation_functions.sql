@@ -28,7 +28,9 @@ create type pricing.bill_breakdown as (
 
 -- 청구월이 속한 계절을 돌려준다. 주택용 기준(하계 7~8월).
 create or replace function pricing.residential_season(billing_month date)
-returns text language sql immutable as $$
+returns text language sql immutable
+set search_path = ''
+as $$
     select case when extract(month from billing_month) in (7, 8) then '하계' else '기타계절' end;
 $$;
 

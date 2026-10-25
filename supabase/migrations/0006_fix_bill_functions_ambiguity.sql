@@ -55,7 +55,9 @@ create or replace function pricing.calc_residential_bill(
     billing_month   date default current_date,
     household_count integer default 1
 ) returns pricing.bill_breakdown
-language plpgsql stable as $$
+language plpgsql stable
+set search_path = ''   -- 호출자의 search_path 를 따르지 않는다
+as $$
 declare
     tv        record;
     v_season  text    := pricing.residential_season(billing_month);
@@ -176,7 +178,9 @@ create or replace function pricing.calc_demand_bill(
     on_peak_kwh     numeric,
     season          text default null
 ) returns pricing.bill_breakdown
-language plpgsql stable as $$
+language plpgsql stable
+set search_path = ''   -- 호출자의 search_path 를 따르지 않는다
+as $$
 declare
     tv    record;
     -- 계절 이름 체계가 종별마다 다르다. 명시하지 않으면 차례로 시도한다.
