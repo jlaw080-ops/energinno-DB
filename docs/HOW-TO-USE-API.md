@@ -8,21 +8,21 @@ Supabase (pricing 스키마)  →  REST API  →  내 앱 (Vercel 등)
 
 ---
 
-## 0단계. 먼저 이것부터 (한 번만, 대시보드에서)
+## 0단계. 준비 — 할 게 없습니다
 
-**이것을 안 하면 아래 모든 것이 동작하지 않습니다.** SQL 로는 할 수 없고 대시보드에서 해야 합니다.
+대시보드 설정은 **필요 없습니다.** 단가 자료는 `pricing` 스키마에 있지만,
+Supabase 가 기본으로 공개하는 `public` 스키마에 **바라보기용 뷰**를 두었기 때문입니다.
 
-1. <https://supabase.com/dashboard/project/qhnyrkbmkzhsgthcxoiw> 접속
-2. 왼쪽 아래 **Project Settings** (톱니바퀴)
-3. **API** 메뉴
-4. **Exposed schemas** 칸을 찾습니다. 기본값은 `public, graphql_public` 입니다.
-5. 거기에 **`pricing`** 을 추가하고 저장합니다.
+```
+public.renewable_equipment_price  →  (창문)  →  pricing.renewable_equipment_price
+```
 
-> 왜 필요한가요? Supabase 는 기본적으로 `public` 스키마만 바깥에 열어둡니다.
-> 우리 단가는 `pricing` 이라는 별도 스키마에 있어서, 여기 추가해야 길이 뚫립니다.
->
-> 권한(`grant`)은 이미 열어 두었습니다 (`supabase/migrations/0008_rest_api_grants.sql`).
-> 읽기만 되고 쓰기는 막혀 있습니다.
+사본이 아니라 창문이라서, 단가를 고치면 양쪽에 동시에 반영됩니다.
+권한과 뷰는 `supabase/migrations/0008`·`0009` 에 들어 있고 이미 적용돼 있습니다.
+
+> 왜 이렇게 했나요? REST API 는 요청에 스키마 지정 헤더가 없으면 `public` 에서 찾습니다.
+> 브라우저 주소창이나 엑셀처럼 헤더를 붙일 수 없는 곳에서는 `pricing` 을 공개해 두어도
+> `Could not find the table 'public.…'` 오류가 납니다. 창문을 두면 그 문제가 사라집니다.
 
 ---
 
@@ -42,16 +42,17 @@ Supabase (pricing 스키마)  →  REST API  →  내 앱 (Vercel 등)
 
 ## 2단계. 제일 빠른 확인 — 브라우저 주소창
 
-0단계를 마쳤는지 확인하는 가장 쉬운 방법입니다. 아래 주소를 브라우저에 붙여넣으세요.
+아래 주소를 브라우저에 붙여넣으세요. JSON 이 나오면 성공입니다.
 
 ```
 https://qhnyrkbmkzhsgthcxoiw.supabase.co/rest/v1/renewable_equipment_price?select=*&apikey=sb_publishable_dfdUxuMV1p-Zlst2p37eDQ_moJEDgtl
 ```
 
-JSON 이 나오면 성공입니다. 오류가 나면 맨 아래 **자주 나는 오류** 를 보세요.
+전기요금 계산도 주소창으로 됩니다.
 
-> 주소창 방식은 `pricing` 이 **Exposed schemas 의 첫 번째**일 때만 바로 됩니다.
-> 아니면 헤더가 필요해서 아래 코드 방식을 쓰셔야 합니다.
+```
+https://qhnyrkbmkzhsgthcxoiw.supabase.co/rest/v1/rpc/calc_residential_bill?usage_kwh=450&voltage=저압&billing_month=2025-07-15&apikey=sb_publishable_dfdUxuMV1p-Zlst2p37eDQ_moJEDgtl
+```
 
 ---
 
@@ -79,17 +80,18 @@ NEXT_PUBLIC_SUPABASE_KEY=sb_publishable_dfdUxuMV1p-Zlst2p37eDQ_moJEDgtl
 ```ts
 import { createClient } from '@supabase/supabase-js'
 
-// schema('pricing') 이 핵심입니다. 이걸 빼면 public 스키마를 보러 가서 못 찾습니다.
-export const pricing = createClient(
+export const db = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_KEY!,
-).schema('pricing')
+)
 ```
+
+> `.schema('pricing')` 같은 건 필요 없습니다. 창문 뷰가 `public` 에 있어서 그냥 읽힙니다.
 
 ### 장비 단가 불러오기
 
 ```ts
-const { data, error } = await pricing
+const { data, error } = await db
   .from('renewable_equipment_price')
   .select('category, subcategory, name, unit_price, price_unit')
   .order('category')
@@ -101,7 +103,7 @@ const { data, error } = await pricing
 ### 전기요금 절감 단가(회피단가) 불러오기
 
 ```ts
-const { data } = await pricing
+const { data } = await db
   .from('misc_price')
   .select('unit_price, price_unit')
   .eq('slug', 'electricity-avoided-cost')
@@ -117,14 +119,16 @@ const { data } = await pricing
 
 ```ts
 // 주택용 450kWh, 저압, 2025년 7월분
-const { data, error } = await pricing.rpc('calc_residential_bill', {
+const { data, error } = await db.rpc('calc_residential_bill', {
   usage_kwh: 450,
   voltage: '저압',
   billing_month: '2025-07-15',
   household_count: 1,
 })
 
-// {
+const bill = data[0]   // ⚠️ 결과는 '행이 하나인 배열' 입니다
+
+// bill = {
 //   적용요금표: '2025년 4월 1일 시행',
 //   계절: '하계',
 //   기본요금: 1600, 전력량요금: 68190,
@@ -137,7 +141,7 @@ const { data, error } = await pricing.rpc('calc_residential_bill', {
 
 ```ts
 // 일반용(갑)Ⅰ 저압, 계약 100kW, 10,000kWh
-const { data } = await pricing.rpc('calc_seasonal_bill', {
+const { data } = await db.rpc('calc_seasonal_bill', {
   contract_type: '일반용전력(갑)Ⅰ',
   voltage: '저압',
   rate_option: null,
@@ -149,7 +153,7 @@ const { data } = await pricing.rpc('calc_seasonal_bill', {
 
 ```ts
 // 일반용(갑)Ⅱ 고압A 선택Ⅰ, 계약 300kW, 시간대별 사용량
-const { data } = await pricing.rpc('calc_demand_bill', {
+const { data } = await db.rpc('calc_demand_bill', {
   contract_type: '일반용전력(갑)Ⅱ',
   voltage: '고압A',
   rate_option: '선택Ⅰ',
@@ -167,8 +171,8 @@ const { data } = await pricing.rpc('calc_demand_bill', {
 [HOW-TO-QUERY.md 9절](HOW-TO-QUERY.md)에 있습니다.
 
 ```ts
-if (data.주의) {
-  console.warn('이 계산에는 단서가 있습니다:', data.주의)
+if (bill.주의) {
+  console.warn('이 계산에는 단서가 있습니다:', bill.주의)
 }
 ```
 
@@ -212,9 +216,9 @@ SUPABASE_KEY=sb_publishable_dfdUxuMV1p-Zlst2p37eDQ_moJEDgtl
 
 | 메시지 | 뜻 | 해결 |
 |---|---|---|
-| `The schema must be one of the following: public, graphql_public` | 0단계를 안 했습니다 | Exposed schemas 에 `pricing` 추가 |
+| `Could not find the table 'public.…' in the schema cache` | 창문 뷰가 없거나 캐시가 안 바뀌었습니다 | `supabase/migrations/0009_public_api_views.sql` 을 SQL Editor 에서 실행 |
 | `permission denied for schema pricing` | 권한이 없습니다 | `supabase/migrations/0008_rest_api_grants.sql` 을 SQL Editor 에서 실행 |
-| `relation "public.renewable_equipment_price" does not exist` | `.schema('pricing')` 을 빼먹었습니다 | 연결 코드에 추가 |
+
 | `Could not find the function ... in the schema cache` | 함수 이름·인수 이름이 틀렸습니다 | 위 예시의 인수 이름을 그대로 쓰세요 |
 | `No API key found in request` | `apikey` 가 빠졌습니다 | 환경변수 확인 |
 | 결과가 빈 배열 `[]` | 권한은 있는데 보이는 행이 없습니다 | RLS 정책 확인, 또는 조건이 너무 좁은지 확인 |
