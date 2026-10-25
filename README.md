@@ -22,7 +22,7 @@
 | `sources/` | 근거가 되는 원본 PDF·CSV. 파일명은 `시행일_종류` 형식 |
 | `docs/` | 데이터 구조 설명서와 갱신 방법 |
 | `scripts/` | 변환·검증·SQL 생성 도구 |
-| `supabase/` | DB 테이블 정의(`migrations/`)와 데이터 적재용 SQL(`seed/`) |
+| `supabase/` | DB 테이블·계산함수 정의(`migrations/`), 데이터 적재용 SQL(`seed/`), 검증 SQL(`tests/`) |
 
 ## 지금 들어있는 데이터
 
@@ -74,6 +74,8 @@ cp .env.example .env
 
 ## 더 읽을 것
 
-- [docs/HOW-TO-QUERY.md](docs/HOW-TO-QUERY.md) — **단가를 꺼내 쓰는 방법 (전기요금 계산 예시 포함)**
+- [docs/HOW-TO-QUERY.md](docs/HOW-TO-QUERY.md) — **단가를 꺼내 쓰는 방법**
+  - 전기요금은 함수 한 줄로 계산됩니다: `select * from pricing.calc_residential_bill(450, '저압', '2025-07-15');`
+  - 한전이 요금표에 인쇄해 둔 계산 예시와 전 항목 1원 단위로 대조해 검증했습니다.
 - [docs/DATA-MODEL.md](docs/DATA-MODEL.md) — 각 단가를 어떤 항목으로 저장하는지
 - [docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) — 요금이 바뀌었을 때 갱신하는 방법

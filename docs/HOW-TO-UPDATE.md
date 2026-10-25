@@ -7,7 +7,9 @@
 2. data/ 의 JSON을 고친다
 3. python3 scripts/validate.py          ← 형식 점검
 4. python3 scripts/export_sql.py        ← Supabase용 SQL 다시 만들기
-5. 커밋 & 푸시                           ← 변경 이력이 남는다
+5. Supabase 에 넣고 체크섬 대조          ← 4장
+6. 계산 함수 검증 SQL 실행               ← 4장 (전기요금을 고쳤을 때)
+7. 커밋 & 푸시                           ← 변경 이력이 남는다
 ```
 
 ---
@@ -232,18 +234,30 @@ Project Settings → API → **Exposed schemas** 에 `pricing` 을 추가해야
 단가는 공개 고시 자료라 읽기를 막을 이유가 없고, 쓰기는 서버에서만 하도록 한 것입니다.
 service_role 키는 **브라우저에 노출하면 안 됩니다** (서버·빌드 환경변수로만 사용).
 
-### 전기요금 계산에 쓰기 전에
+### 요금표를 넣은 뒤에는 계산 함수를 꼭 검증하세요
 
-`electricity_tariff_version.climate_charge_per_kwh` 와 `fuel_adjustment_per_kwh` 가
-`null` 입니다. 요금표 PDF 에 단가가 없어서 비워둔 값입니다.
-한전 공지에서 확인해 채워야 실제 요금이 계산됩니다.
+요율만 맞아도 **반올림 규칙이나 누진 경계가 틀리면 금액이 틀립니다.**
+한전이 요금표에 직접 인쇄해 둔 계산 예시와 대조하는 SQL 을 만들어 뒀습니다.
+
+1. SQL Editor 에 `supabase/tests/verify_bill_functions.sql` 을 붙여넣고 Run 합니다.
+2. `판정` 칸이 **모두 `일치`** 여야 합니다. 하나라도 `불일치` 면 함수나 요율이 틀린 것입니다.
 
 ```sql
-update pricing.electricity_tariff_version
-set climate_charge_per_kwh = 9.0,     -- 실제 공지 단가로 바꾸세요
-    fuel_adjustment_per_kwh = 5.0     -- 분기마다 달라집니다
-where effective_from = '2026-04-16';
+-- 검증이 끝나면 이렇게 쓸 수 있습니다
+select * from pricing.calc_residential_bill(450, '저압', '2025-07-15');
 ```
+
+자세한 사용법은 `docs/HOW-TO-QUERY.md` 9절에 있습니다.
+
+> ⚠️ 기후환경요금·연료비조정단가는 `electricity_tariff_version` 의
+> `climate_charge_per_kwh` / `fuel_adjustment_per_kwh` 칸이 아니라
+> **`pricing.electricity_surcharge` 표**에서 읽습니다. 분기마다 바뀌는 값이라
+> 요금표 버전에 묶어두면 안 되기 때문입니다. 계산 함수도 그쪽을 봅니다.
+> 버전 표의 두 칸은 요금표 PDF 에 단가가 적혀 있을 때만 참고용으로 채워둔 것입니다.
+
+> ⚠️ 2021-01-01 요금표에는 **전력산업기반기금율이 적혀 있지 않습니다.**
+> 그 시점으로 계산하면 함수가 기금을 0원으로 두고 `주의` 칸에 그 사실을 적습니다.
+> 금액을 그대로 쓰지 마세요.
 
 ## 5. API 키를 다룰 때 지킬 것
 
