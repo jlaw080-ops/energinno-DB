@@ -20,8 +20,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MIGRATION = ROOT / "supabase" / "migrations" / "0006_fix_bill_functions_ambiguity.sql"
-FUNCTIONS = ("calc_residential_bill", "calc_demand_bill")
+MIGRATIONS = sorted((ROOT / "supabase" / "migrations").glob("*.sql"))
 
 DB_SQL = """\
 -- Supabase 대시보드 > SQL Editor 에서 실행하세요.
@@ -29,7 +28,7 @@ with d as (
   select p.proname, pg_get_functiondef(p.oid) as def
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'pricing'
-    and p.proname in ('calc_residential_bill', 'calc_demand_bill')
+    and p.proname like 'calc\\_%'
 ),
 body as (
   -- 'declare' 부터 마지막 'end' 까지만 떼어내고 -- 주석을 지운다
@@ -54,25 +53,34 @@ def normalize(body: str) -> str:
     return re.sub(r"\s+", " ", body).strip()
 
 
-def repo_hashes() -> dict[str, tuple[str, int]]:
-    text = MIGRATION.read_text(encoding="utf-8")
-    result = {}
-    for name in FUNCTIONS:
-        start = text.index("function pricing." + name)
-        declare = text.index("declare", start)
-        end = text.index("end $$;", declare)
-        body = normalize(text[declare:end] + "end")
-        result[name] = (hashlib.md5(body.encode()).hexdigest(), len(body))
-    return result
+def repo_hashes() -> dict[str, tuple[str, int, str]]:
+    """마이그레이션 파일들에서 calc_* 함수 본문을 찾아 해시한다.
+
+    같은 함수가 여러 파일에 있으면 (0005 → 0006 처럼) 나중 파일이 이긴다.
+    실제 DB 에 남는 것도 마지막에 실행된 정의이기 때문이다.
+    """
+    result: dict[str, tuple[str, int, str]] = {}
+    for path in MIGRATIONS:
+        text = path.read_text(encoding="utf-8")
+        for match in re.finditer(r"function pricing\.(calc_\w+)\(", text):
+            name = match.group(1)
+            try:
+                declare = text.index("declare", match.end())
+                end = text.index("end $$;", declare)
+            except ValueError:
+                continue
+            body = normalize(text[declare:end] + "end")
+            result[name] = (hashlib.md5(body.encode()).hexdigest(), len(body), path.name)
+    return dict(sorted(result.items()))
 
 
 def main() -> None:
     if "--sql" in sys.argv:
         print(DB_SQL)
         return
-    print(f"원본: {MIGRATION.relative_to(ROOT)}\n")
-    for name, (digest, size) in repo_hashes().items():
-        print(f"  {name:24s} {digest}  ({size}자)")
+    print("레포의 마이그레이션 파일에서 읽은 계산 함수\n")
+    for name, (digest, size, src) in repo_hashes().items():
+        print(f"  {name:24s} {digest}  ({size}자)  ← {src}")
     print("\n이 해시를 DB 쪽 값과 비교하세요:")
     print("  python3 scripts/verify_functions_match.py --sql")
 
