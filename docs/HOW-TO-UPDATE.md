@@ -3,7 +3,7 @@
 ## 공통 순서
 
 ```
-1. sources/ 에 근거 자료를 넣는다       (파일명: 시행일_종류)
+1. 단가정보/ 에 근거 자료를 넣는다       (파일명: 시행일_종류)
 2. data/ 의 JSON을 고친다
 3. python3 scripts/validate.py          ← 형식 점검
 4. python3 scripts/export_sql.py        ← Supabase용 SQL 다시 만들기
@@ -19,7 +19,7 @@
 한전은 보통 1년에 2~4회 요금표를 바꿉니다.
 
 1. 한전 홈페이지에서 새 **전기요금표(종합)** PDF를 받습니다.
-2. `sources/electricity/YYYY-MM-DD_종합.pdf` 로 이름을 바꿔 넣습니다. (시행일 기준)
+2. `단가정보/전기요금/종합/YYYY-MM-DD_전기요금표_종합.pdf` 로 이름을 바꿔 넣습니다. (시행일 기준)
 3. 직전 연도 JSON을 복사해 `data/electricity/kepco_YYYY-MM-DD.json` 을 만듭니다.
 4. 바뀐 숫자를 고칩니다.
 5. 아래 두 가지를 **반드시** 돌립니다.
@@ -37,7 +37,7 @@ python3 scripts/verify_electricity.py
 
 ### 아직 데이터로 만들지 않은 요금표
 
-`sources/electricity/` 에 원본은 있지만 JSON으로 옮기지 않은 요금표입니다.
+`단가정보/전기요금/` 에 원본은 있지만 JSON으로 옮기지 않은 요금표입니다.
 `python3 scripts/read_kepco_tables.py --survey` 로 현황을 볼 수 있습니다.
 
 | 시행일 | 종합 | 주택용 고압 | 주택용 저압 | 비고 |
@@ -167,7 +167,7 @@ JSON 의 `meta.skip_pdf_number_check` 에 사유를 적습니다.
 
 ### 수동 (지금 방식)
 
-1. 공공데이터포털에서 CSV를 받아 `sources/gas/` 에 넣습니다.
+1. 공공데이터포털에서 CSV를 받아 `단가정보/가스요금/` 에 넣습니다.
 2. `scripts/convert_gas_csv.py` 안의 파일명을 새 파일로 바꿉니다.
 3. 실행하면 `data/gas/` 에 JSON이 다시 만들어집니다.
 

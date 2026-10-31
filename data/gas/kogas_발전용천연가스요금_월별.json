@@ -3,7 +3,7 @@
     "dataset": "kogas_power_generation_monthly",
     "title": "한국가스공사 발전용 천연가스요금 (월별)",
     "provider": "한국가스공사",
-    "source_file": "sources/gas/kogas_발전용천연가스요금_2022-12-01.csv",
+    "source_file": "단가정보/가스요금/2022-12-01_한국가스공사_발전용천연가스요금.csv",
     "source_portal": "공공데이터포털 (data.go.kr)",
     "currency": "KRW",
     "period_start": "2008-01",

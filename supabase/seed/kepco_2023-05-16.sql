@@ -1,12 +1,12 @@
 -- 전기요금: 한국전력공사 전기요금표 (종합) (2023년 5월 16일 시행)
--- 원본: sources/electricity/2023-05-16_종합.pdf
+-- 원본: 단가정보/전기요금/종합/2023-05-16_전기요금표_종합.pdf
 
 insert into pricing.electricity_tariff_version
   (effective_from, published_label, provider, source_file,
    vat_rate, power_fund_rate, climate_charge_per_kwh, fuel_adjustment_per_kwh,
    is_partial, covered_contract_types, note)
 values
-  ('2023-05-16', '2023년 5월 16일 시행', '한국전력공사', 'sources/electricity/2023-05-16_종합.pdf', 0.1, 0.037, NULL, NULL, FALSE, '{"가로등","교육용전력(갑)","교육용전력(을)","농사용전력","산업용전력(갑)Ⅰ","산업용전력(갑)Ⅱ","산업용전력(을)","심야전력(갑)","심야전력(을)Ⅰ","심야전력(을)Ⅱ","일반용전력(갑)Ⅰ","일반용전력(갑)Ⅱ","일반용전력(을)","주택용 계시별","주택용전력"}', '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2023-05-16 시행 3페이지 및 전기자동차 충전전력요금은 미포함 2024-01-01 요금표와 1·2페이지를 페이지 이미지로 육안 대조했다. 농사용전력 전력량요금이 다르고, 일반용전력(을)과 산업용전력(을)이 ''일반용전력(을)·산업용전력(을)'' 한 표로 묶여 같은 요율을 쓴다(고압C 포함). 두 종별은 2024-01-01 요금표부터 갈라진다. 조회 편의를 위해 두 종별로 나눠 같은 요율을 넣고 각 종별에 그 사실을 적었다. 나머지 종별은 모두 동일하다.')
+  ('2023-05-16', '2023년 5월 16일 시행', '한국전력공사', '단가정보/전기요금/종합/2023-05-16_전기요금표_종합.pdf', 0.1, 0.037, NULL, NULL, FALSE, '{"가로등","교육용전력(갑)","교육용전력(을)","농사용전력","산업용전력(갑)Ⅰ","산업용전력(갑)Ⅱ","산업용전력(을)","심야전력(갑)","심야전력(을)Ⅰ","심야전력(을)Ⅱ","일반용전력(갑)Ⅰ","일반용전력(갑)Ⅱ","일반용전력(을)","주택용 계시별","주택용전력"}', '요금표에 종별 시행일 구분 주석 없음 — 전 종별 2023-05-16 시행 3페이지 및 전기자동차 충전전력요금은 미포함 2024-01-01 요금표와 1·2페이지를 페이지 이미지로 육안 대조했다. 농사용전력 전력량요금이 다르고, 일반용전력(을)과 산업용전력(을)이 ''일반용전력(을)·산업용전력(을)'' 한 표로 묶여 같은 요율을 쓴다(고압C 포함). 두 종별은 2024-01-01 요금표부터 갈라진다. 조회 편의를 위해 두 종별로 나눠 같은 요율을 넣고 각 종별에 그 사실을 적었다. 나머지 종별은 모두 동일하다.')
 on conflict (effective_from, source_file) do update set
   published_label = excluded.published_label,
   vat_rate = excluded.vat_rate,
@@ -18,7 +18,7 @@ on conflict (effective_from, source_file) do update set
 -- 같은 버전의 기존 요율을 지우고 다시 넣는다 (부분 수정 시 꼬이지 않도록)
 delete from pricing.electricity_rate where version_id in (
   select id from pricing.electricity_tariff_version
-  where effective_from = '2023-05-16' and source_file = 'sources/electricity/2023-05-16_종합.pdf');
+  where effective_from = '2023-05-16' and source_file = '단가정보/전기요금/종합/2023-05-16_전기요금표_종합.pdf');
 
 insert into pricing.electricity_rate
   (version_id, contract_type, rate_structure, contract_power, voltage, rate_option,
@@ -376,4 +376,4 @@ select v.id, x.* from pricing.electricity_tariff_version v,
 ) as x(contract_type, rate_structure, contract_power, voltage, rate_option,
        basic_charge, basic_charge_unit, basic_charge_formula,
        season, time_zone, tier, usage_range, energy_label, energy_charge, note)
-where v.effective_from = '2023-05-16' and v.source_file = 'sources/electricity/2023-05-16_종합.pdf';
+where v.effective_from = '2023-05-16' and v.source_file = '단가정보/전기요금/종합/2023-05-16_전기요금표_종합.pdf';

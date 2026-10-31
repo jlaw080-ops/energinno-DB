@@ -3,8 +3,8 @@
     "dataset": "kepco_electricity_tariff",
     "title": "한국전력공사 전기요금표 — 주택용만",
     "provider": "한국전력공사",
-    "source_file": "sources/electricity/2023-01-01_주택용저압.pdf",
-    "source_file_high_voltage": "sources/electricity/2023-01-01_주택용고압.pdf",
+    "source_file": "단가정보/전기요금/주택용저압/2023-01-01_전기요금표_주택용저압.pdf",
+    "source_file_high_voltage": "단가정보/전기요금/주택용고압/2023-01-01_전기요금표_주택용고압.pdf",
     "source_pages": [
       1
     ],

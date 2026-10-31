@@ -1,13 +1,14 @@
 # energinno-DB
 
-신재생에너지·건물에너지 사업의 **경제성 분석에 쓰는 단가를 한 곳에서 관리**하는 저장소입니다.
-전기·가스 요금, 신재생에너지 장비 단가, 기타 단가를 담습니다.
+ENERGINNO 에너지 경제성 평가용 **기초 데이터 저장소**입니다.
+VE·LCC 검토, ZEB 사업성 분석 등에 반복적으로 쓰이는 공공요금·단가를 모아 두고,
+다른 앱에서 바로 불러 쓸 수 있게 DB 로도 올려 둡니다.
 
 ## 어떻게 굴러가나요
 
 ```
 원본 자료(PDF·CSV)  →  JSON 데이터  →  Supabase(DB)  →  다른 앱에서 조회
-  sources/             data/           supabase/        제안서·경제성분석 등
+  단가정보/            data/           supabase/        제안서·경제성분석 등
 ```
 
 - **`data/` 안의 JSON이 원본(정답)** 입니다. 값이 바뀌면 여기부터 고칩니다.
@@ -18,11 +19,23 @@
 
 | 폴더 | 내용 |
 |---|---|
+| `단가정보/` | 근거가 되는 **원문 자료** (전기요금표 PDF, 가스요금 CSV) |
 | `data/` | 단가 데이터 (JSON) — **여기가 원본** |
-| `sources/` | 근거가 되는 원본 PDF·CSV. 파일명은 `시행일_종류` 형식 |
-| `docs/` | 데이터 구조 설명서와 갱신 방법 |
+| `docs/` | 사용법·데이터 구조 설명서 |
 | `scripts/` | 변환·검증·SQL 생성 도구 |
-| `supabase/` | DB 테이블·계산함수 정의(`migrations/`), 데이터 적재용 SQL(`seed/`), 검증 SQL(`tests/`) |
+| `supabase/` | DB 테이블·계산함수 정의(`migrations/`), 적재용 SQL(`seed/`), 검증 SQL(`tests/`) |
+
+원문 자료의 보유 현황은 [`단가정보/README.md`](단가정보/README.md) 에 정리돼 있습니다.
+
+## 파일명 규칙
+
+원문 자료는 `시행일(YYYY-MM-DD)_자료명.확장자` 형식입니다.
+시행일 순으로 정렬되므로 평가 기준일에 해당하는 자료를 바로 찾을 수 있습니다.
+
+```
+단가정보/전기요금/종합/2024-01-01_전기요금표_종합.pdf
+단가정보/가스요금/2026-09-01_한국가스공사_천연가스요금정보.csv
+```
 
 ## 지금 들어있는 데이터
 
@@ -40,15 +53,17 @@
 
 | 테이블 | 행수 |
 |---|---:|
-| `pricing.electricity_rate` | 2,994 (요금표 14부) |
+| `pricing.electricity_rate` | 3,075 (요금표 15개 버전) |
 | `pricing.gas_power_generation_monthly` | 180 |
 | `pricing.gas_wholesale_price` | 11 |
 | `pricing.electricity_surcharge` | 13 (기후환경요금·연료비조정단가) |
 | `pricing.residential_welfare_discount` | 9 (주택용 복지할인) |
+| `pricing.renewable_equipment_price` | 7 (신재생 장비 단가) |
+| `pricing.misc_price` | 1 (기타 단가) |
 
-나머지 요금표는 `sources/electricity/` 에 원본 그대로 보관돼 있습니다.
-그중 **4부(2022-04-01, 2022-07-01, 2023-01-01, 2023-11-09)는 글자가 없는 이미지 PDF**라
-사람이 옮겨 적어야 합니다. 현황은 `python3 scripts/read_kepco_tables.py --survey` 또는
+전기요금표 중 **4부(2022-04-01, 2022-07-01, 2023-01-01, 2023-11-09)는 글자가 없는 이미지 PDF**라
+비주택용 종별은 사람이 옮겨 적어야 합니다. 현황은
+`python3 scripts/read_kepco_tables.py --survey` 또는
 [docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) 의 체크리스트를 보세요.
 
 ## 자주 쓰는 명령
@@ -60,8 +75,16 @@ python3 scripts/export_sql.py            # Supabase 에 넣을 SQL 다시 만들
 python3 scripts/convert_gas_csv.py       # 가스 CSV → JSON 다시 변환
 python3 scripts/checksum.py              # DB 와 대조할 기대 체크섬 출력
 python3 scripts/checksum.py --sql        # DB 에서 돌릴 대조 SQL 출력
+python3 scripts/verify_functions_match.py # 레포와 DB 의 계산 함수가 같은지 대조
 python3 scripts/read_kepco_tables.py --survey   # 요금표 PDF 현황과 추출 가능 여부
 ```
+
+## 자료를 추가할 때
+
+1. `단가정보/` 의 성격에 맞는 하위 폴더에 원문 파일을 넣고 파일명 규칙을 맞춥니다.
+2. `단가정보/README.md` 의 보유 현황을 갱신합니다.
+3. `data/` 의 JSON 에 값을 옮기고 `meta.source_file` 에 원문 경로를 적습니다.
+4. [docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) 의 절차를 따라 검증·적재합니다.
 
 ## API 키 관리
 
@@ -76,7 +99,7 @@ cp .env.example .env
 
 - [docs/HOW-TO-USE-API.md](docs/HOW-TO-USE-API.md) — **다른 앱(Vercel 등)에서 불러 쓰는 방법**
 - [docs/HOW-TO-QUERY.md](docs/HOW-TO-QUERY.md) — **단가를 꺼내 쓰는 방법**
-  - 전기요금은 함수 한 줄로 계산됩니다: `select * from pricing.calc_residential_bill(450, '저압', '2025-07-15');`
+  - 전기요금은 함수 한 줄로 계산됩니다: `select * from calc_residential_bill(450, '저압', '2025-07-15');`
   - 한전이 요금표에 인쇄해 둔 계산 예시와 전 항목 1원 단위로 대조해 검증했습니다.
 - [docs/DATA-MODEL.md](docs/DATA-MODEL.md) — 각 단가를 어떤 항목으로 저장하는지
 - [docs/HOW-TO-UPDATE.md](docs/HOW-TO-UPDATE.md) — 요금이 바뀌었을 때 갱신하는 방법

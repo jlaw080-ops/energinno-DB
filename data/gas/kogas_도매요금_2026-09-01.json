@@ -3,7 +3,7 @@
     "dataset": "kogas_wholesale",
     "title": "한국가스공사 용도별 천연가스 도매요금",
     "provider": "한국가스공사",
-    "source_file": "sources/gas/kogas_천연가스요금정보_2026-09-01.csv",
+    "source_file": "단가정보/가스요금/2026-09-01_한국가스공사_천연가스요금정보.csv",
     "source_portal": "공공데이터포털 (data.go.kr)",
     "effective_from": "2026-09-01",
     "currency": "KRW",

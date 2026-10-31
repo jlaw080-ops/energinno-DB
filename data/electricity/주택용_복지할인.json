@@ -3,7 +3,7 @@
     "dataset": "kepco_residential_welfare_discount",
     "title": "주택용 복지할인 요금제도 · 1주택수가구 요금계산방법",
     "provider": "한국전력공사",
-    "source_file": "sources/electricity/2024-01-01_주택용저압.pdf",
+    "source_file": "단가정보/전기요금/주택용저압/2024-01-01_전기요금표_주택용저압.pdf",
     "source_pages": [1],
     "published_label": "2024년 1월 1일 시행",
     "effective_from": "2024-01-01",

@@ -6,10 +6,10 @@
     python3 scripts/read_kepco_tables.py --survey
 
     # 특정 영역의 시간대별 요율 읽기 (x0,y0,x1,y1 는 PDF 좌표)
-    python3 scripts/read_kepco_tables.py sources/electricity/2025-04-01_종합.pdf 2 --tou 305,85,640,800
+    python3 scripts/read_kepco_tables.py 단가정보/전기요금/종합/2025-04-01_전기요금표_종합.pdf 2 --tou 305,85,640,800
 
     # 특정 영역의 숫자를 읽기순으로 나열 (계절별·누진 표용)
-    python3 scripts/read_kepco_tables.py sources/electricity/2026-04-16_종합.pdf 1 --nums 604,259,882,380
+    python3 scripts/read_kepco_tables.py 단가정보/전기요금/종합/2026-04-16_전기요금표_종합.pdf 1 --nums 604,259,882,380
 
 왜 이렇게 하나
 --------------
@@ -146,7 +146,7 @@ def survey() -> None:
     """요금표 PDF들이 글자를 품고 있는지, 몇 쪽인지 한눈에 본다."""
     print(f"{'시행일':<12} {'쪽':>2} {'크기':>10} {'숫자':>5}  비고")
     print("-" * 58)
-    for path in sorted(glob.glob(str(ROOT / "sources/electricity/*_종합.pdf"))):
+    for path in sorted(glob.glob(str(ROOT / "단가정보/전기요금/종합/*_전기요금표_종합.pdf"))):
         name = Path(path).stem.replace("_종합", "")
         text = subprocess.run(["pdftotext", "-layout", path, "-"],
                               capture_output=True, text=True).stdout

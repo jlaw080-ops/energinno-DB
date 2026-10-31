@@ -3,7 +3,7 @@
     "dataset": "kepco_electricity_tariff",
     "title": "한국전력공사 전기요금표 (종합)",
     "provider": "한국전력공사",
-    "source_file": "sources/electricity/2025-01-01_종합.pdf",
+    "source_file": "단가정보/전기요금/종합/2025-01-01_전기요금표_종합.pdf",
     "source_pages": [
       1,
       2

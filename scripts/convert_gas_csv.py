@@ -4,7 +4,7 @@
 사용법:
     python3 scripts/convert_gas_csv.py
 
-sources/gas/ 의 원본 CSV를 읽어 data/gas/ 에 JSON으로 저장한다.
+단가정보/가스요금/ 의 원본 CSV를 읽어 data/gas/ 에 JSON으로 저장한다.
 원본 숫자를 그대로 옮기며, 값을 보정하거나 추정하지 않는다.
 """
 import csv
